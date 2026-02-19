@@ -27,13 +27,6 @@ def get_printed_only(binary):
 
     # cv2.imwrite("printed_only.png", result)
 
-# def save_img(img, filtered_row_lines=None, text="demo"):
-#     preview = img.copy()
-#     if filtered_row_lines:
-#         for y in filtered_row_lines:
-#             cv2.line(preview, (0, y), (img.shape[1], y), (0, 0, 255), 1)
-#     cv2.imwrite(f"output_steps/{text}.jpg", preview)
-
 def after_lines(row_lines, h_lines, ):
     # row1_in_crop = row_lines[1] -  row_lines[0]
     # start_row_index = 0

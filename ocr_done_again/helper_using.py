@@ -117,7 +117,7 @@ def NEB_OCR(img, debug=False):
             break
     if fixed_col_index is None:
         fixed_col_index = 0  # fallback
-    print(fixed_col_index)
+    # print(fixed_col_index)
 
     # --- Step 5: Select boxes in rest of rows starting from fixed column ---
     boxes_selected = get_selected_box(False, row_lines, h_lines, filtered_row_lines, cropped, fixed_col_index, v_lines)
