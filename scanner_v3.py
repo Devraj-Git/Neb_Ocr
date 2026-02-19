@@ -70,31 +70,32 @@ class CanonScannerApp:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         save_path = os.path.join(script_dir, "scanned_output.jpg")
 
-        try:
-            self.status_var.set("Connecting...")
-            self.root.update()
+        # try:
+        self.status_var.set("Connecting...")
+        self.root.update()
 
-            # Connect using your provided logic
-            connected_device = connect_to_device_by_uid(device_uid=target_uid)
+        # Connect using your provided logic
+        connected_device = connect_to_device_by_uid(device_uid=target_uid)
 
-            self.status_var.set("Scanning... (Wait for motor)")
-            self.root.update()
+        self.status_var.set("Scanning... (Wait for motor)")
+        self.root.update()
 
-            # Perform the scan
-            img = scan_side(device=connected_device)
+        # Perform the scan
+        img = scan_side(device=connected_device)
+        
+        # Save the image automatically
+        img.save(save_path, "JPEG", quality=95)
+        self.image_path = save_path
+        get_ocr_result(save_path)
+        # get_ocr_result('D:/Neb_Ocr_Final/402.jpg')
+        
+        self.status_var.set(f"Success! Saved to {os.path.basename(save_path)}")
+        messagebox.showinfo("Scan Complete", f"Image saved successfully to:\n{save_path}")
             
-            # Save the image automatically
-            img.save(save_path, "JPEG", quality=95)
-            self.image_path = save_path
-            get_ocr_result('D:/Neb_Ocr_Final/402.jpg')
-            
-            self.status_var.set(f"Success! Saved to {os.path.basename(save_path)}")
-            messagebox.showinfo("Scan Complete", f"Image saved successfully to:\n{save_path}")
-            
-        except Exception as e:
-            self.status_var.set("Scan Failed.")
-            messagebox.showerror("Error", f"Could not scan: {e}")
-            print(e)
+        # except Exception as e:
+        #     self.status_var.set("Scan Failed.")
+        #     messagebox.showerror("Error", f"Could not scan: {e}")
+        #     print(e)
 
 if __name__ == "__main__":
     root = tk.Tk()

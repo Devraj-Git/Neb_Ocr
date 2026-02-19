@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from ocr_done_again.utils import after_lines
 
-def rows_full(cropped, row_lines):
+def rows_full(cropped, row_lines, debug=False):
     gray_cropped = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
     _, binary_cropped = cv2.threshold(gray_cropped, 150, 255, cv2.THRESH_BINARY_INV)
     # get_printed_only(binary_cropped)
@@ -32,11 +32,11 @@ def rows_full(cropped, row_lines):
         if y - last_y > buffer_y:
             filtered_row_lines.append(y + shift_y)
             last_y = y
-
-    preview = cropped.copy()
-    for y in filtered_row_lines:
-        cv2.line(preview, (0, y), (cropped.shape[1], y), (0, 0, 255), 1)
-    cv2.imwrite("output_steps/step51_manual_lines_all.jpg", preview)
+    if debug:
+        preview = cropped.copy()
+        for y in filtered_row_lines:
+            cv2.line(preview, (0, y), (cropped.shape[1], y), (0, 0, 255), 1)
+        cv2.imwrite("output_steps/step51_manual_lines_all.jpg", preview)
 
     # --- Remove weak rows based on density ---
     density_threshold = 160000
@@ -51,10 +51,11 @@ def rows_full(cropped, row_lines):
             # Skip this row (weak)
             pass
     # --- Draw lines on full cropped image ---
-    preview = cropped.copy()
-    for y in final_rows:
-        cv2.line(preview, (0, y), (cropped.shape[1], y), (0, 0, 255), 1)
-    cv2.imwrite("output_steps/step52_manual_lines_all.jpg", preview)
+    if debug:
+        preview = cropped.copy()
+        for y in final_rows:
+            cv2.line(preview, (0, y), (cropped.shape[1], y), (0, 0, 255), 1)
+        cv2.imwrite("output_steps/step52_manual_lines_all.jpg", preview)
 
     # if there is only 2 lines in header
     start_row_index, _ = after_lines(row_lines, final_rows)
@@ -73,11 +74,11 @@ def rows_full(cropped, row_lines):
     ]
     final_rows = sorted(filtered + row_lines_local)
     # print('after operation:',final_rows)
-    
-    preview = cropped.copy()
-    for y in final_rows:
-        cv2.line(preview, (0, y), (cropped.shape[1], y), (0, 0, 255), 1)
-    cv2.imwrite("output_steps/step53_manual_lines_all.jpg", preview)
+    if debug:
+        preview = cropped.copy()
+        for y in final_rows:
+            cv2.line(preview, (0, y), (cropped.shape[1], y), (0, 0, 255), 1)
+        cv2.imwrite("output_steps/step53_manual_lines_all.jpg", preview)
 
     return final_rows
 

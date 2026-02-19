@@ -35,15 +35,15 @@ def get_printed_only(binary):
 #     cv2.imwrite(f"output_steps/{text}.jpg", preview)
 
 def after_lines(row_lines, h_lines, ):
-    row1_in_crop = row_lines[1] -  row_lines[0]
-    start_row_index = 0
-    for i in range(len(h_lines) - 1): # Selecting boxes after lines
-        if h_lines[i] >= row1_in_crop:
-            start_row_index = i
-            if start_row_index > 0:
-                return start_row_index, start_row_index-1
-            else:
-                return start_row_index, None
+    # row1_in_crop = row_lines[1] -  row_lines[0]
+    # start_row_index = 0
+    # for i in range(len(h_lines) - 1): # Selecting boxes after lines
+    #     if h_lines[i] >= row1_in_crop:
+    #         start_row_index = i
+    #         if start_row_index > 0:
+    #             return start_row_index, start_row_index-1
+    #         else:
+    return 0, None
 
 def count_long_white_clusters(row, min_gap=5, max_black_ratio=0.7):
     """
@@ -282,6 +282,21 @@ def filter_boxes_by_first_row_limits(boxes, img, y_tolerance=5, tolerance=2):
         row_y1 = boxes_sorted[0]["adjusted"][1]
         row_boxes = [b for b in boxes_sorted if abs(b["adjusted"][1] - row_y1) <= y_tolerance]
         boxes_sorted = [b for b in boxes_sorted if abs(b["adjusted"][1] - row_y1) > y_tolerance]
+        row_boxes.sort(key=lambda b: b["adjusted"][0])
+        
+        for i in range(len(row_boxes) - 1):
+            curr = row_boxes[i]
+            nxt = row_boxes[i + 1]
+
+            x1_c, y1_c, x2_c, y2_c = curr["adjusted"]
+            x1_n, y1_n, x2_n, y2_n = nxt["adjusted"]
+
+            if x2_c > x1_n:  # overlap detected
+                midpoint = int((x2_c + x1_n) / 2)
+
+                # Adjust both boxes
+                curr["adjusted"] = (x1_c, y1_c, midpoint, y2_c)
+                nxt["adjusted"] = (midpoint, y1_n, x2_n, y2_n)
 
         row_boxes_filtered = []
         skip = False
@@ -350,20 +365,21 @@ def crop_to_content_new(roi, min_height=8):
     return mask[top2:bottom2+1, left2:right2+1], (left2, top2, right2, bottom2)
 
 
-def get_selected_box(case, row_lines, h_lines, filtered_row_lines, cropped, fixed_col_index, v_lines, min_density = 0.0025):
+def get_selected_box(case, row_lines, h_lines, filtered_row_lines, cropped, fixed_col_index, v_lines, min_density = 0.0025, debug=False):
     """
         Case=True :- for uniform column
         Case=False :- for row based column
     """
-    preview = cropped.copy()
-    for y in h_lines:
-        cv2.line(preview, (0, y), (cropped.shape[1], y), (0, 0, 255), 1)
-    for x in v_lines:
-        cv2.line(preview, (x, 0), (x, cropped.shape[0]), (0, 0, 255), 1)
-    cv2.imwrite("output_steps/both_lines.jpg", preview)
+    if debug:
+        preview = cropped.copy()
+        for y in filtered_row_lines:
+            cv2.line(preview, (0, y), (cropped.shape[1], y), (0, 0, 255), 1)
+        for x in v_lines:
+            cv2.line(preview, (x, 0), (x, cropped.shape[0]), (0, 0, 255), 1)
+        cv2.imwrite("output_steps/both_lines.jpg", preview)
 
     boxes_selected = []
-    start_row_index, _ = after_lines(row_lines, h_lines) # Selecting boxes after lines
+    # start_row_index, _ = after_lines(row_lines, h_lines) # Selecting boxes after lines
     row_vlines = None
     gray_cropped = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
     _, binary_cropped = cv2.threshold(gray_cropped, 150, 255, cv2.THRESH_BINARY_INV)
@@ -391,12 +407,17 @@ def get_selected_box(case, row_lines, h_lines, filtered_row_lines, cropped, fixe
                     boxes_selected.append((x1, y1, x2, y2))
         else:
             if not row_vlines:
-                after_line_index, before_line_index = after_lines(row_lines, filtered_row_lines)
-                row_vlines = merged_col_operation(cropped, after_line_index, before_line_index, filtered_row_lines)
-                preview = cropped.copy()
+                # after_line_index, before_line_index = after_lines(row_lines, filtered_row_lines)
+                row_vlines = merged_col_operation(cropped, 0, None, filtered_row_lines, row_lines)
+                if debug:
+                    preview = cropped.copy()
+                    for y in row_vlines:
+                        cv2.line(preview, (y, 0), (y, cropped.shape[1]), (0, 0, 255), 1)
+                    cv2.imwrite("output_steps/step60_merged_col_operation.jpg", preview)
+                    preview = cropped.copy()
+                    for y in h_lines:
+                        cv2.line(preview, (0, y), (preview.shape[1], y), (0, 0, 255), 1)
                 height, width = cropped.shape[:2]
-                for y in h_lines:
-                    cv2.line(preview, (0, y), (preview.shape[1], y), (0, 0, 255), 1)
                 rows_of_interest = sorted(row_vlines.keys())  # these are the row indices in filtered_row_lines
                 for ij, row_idx in enumerate(rows_of_interest):
                     lines_x = row_vlines[row_idx]
@@ -407,11 +428,11 @@ def get_selected_box(case, row_lines, h_lines, filtered_row_lines, cropped, fixe
                         bottom = h_lines[row_idx + 1]
                     else:
                         bottom = height  # last row
-
-                    for x in lines_x:
-                        cv2.line(preview, (x, top), (x, bottom), (0, 0, 255), 1)
-
-                cv2.imwrite("output_steps/step2_both_lines.jpg", preview)
+                    if debug:
+                        for x in lines_x:
+                            cv2.line(preview, (x, top), (x, bottom), (0, 0, 255), 1)
+                if debug:
+                    cv2.imwrite("output_steps/step2_both_lines.jpg", preview)
 
             v_lines_here = row_vlines.get(i, [])
             for j in range(len(v_lines_here)-1):  # start from fixed column
@@ -731,7 +752,8 @@ def build_flat_student_records(rows):
                     key = f"{h_text_upper}{subj_count}"
             else:
                 key = h_text
-            record[key] = val
+            if key not in record:
+                record[key] = val
 
         # --- fallback: find remaining values in even_row not matched ---
         # unmatched_cells = [cell for cell in even_row if all(cell[0] != v for _, v, _ in snapped_extra)]
@@ -841,6 +863,8 @@ def normalize_text(rows_text, status_threshold=0.6, header_threshold=0.4):
     WORD_FIXES = {
         "SUBJ": "CODE",
         "& DOB": "DOB",
+        "@ 00B": "DOB",
+        "00B": "DOB",
     }
     HEADER_FIXES_AFTER_TOTAL = {"TH", "PR", "SUBJ", "CODE", "TOT"}
     def normalize_status(cell, row):
@@ -888,7 +912,10 @@ def normalize_text(rows_text, status_threshold=0.6, header_threshold=0.4):
 
             # --- Header normalization ---
             if expected_headers and row_idx < 2:  # assuming first 1-2 rows are headers
-                txt = re.sub(r"[^A-Za-z. ]+", "", txt)
+                if row_idx==1:
+                    txt = re.sub(r"[^A-Za-z. ]+", "", txt)
+                if row_idx==2:
+                    txt = re.sub(r"[^A-Za-z@0. ]+", "", txt)
                 match = difflib.get_close_matches(txt.upper(), expected_headers, n=1, cutoff=header_threshold)
                 if match:
                     txt = match[0]
@@ -1124,6 +1151,8 @@ def set_remarks(ocr_result_fun, out=False):
 
 
 def filter_rowdected(rows_detected, min_group_size = 3, gap_threshold = 30):
+    if len(rows_detected) == 0:
+        return []
     groups = []
     current_group = [rows_detected[0]]
 
@@ -1143,3 +1172,53 @@ def filter_rowdected(rows_detected, min_group_size = 3, gap_threshold = 30):
     filtered_rows_detected = np.array([r for g in filtered_groups for r in g])
 
     return filtered_rows_detected
+
+def deskew_image(img, debug=False):
+    """
+    Automatically rotate the image so that text is horizontal.
+
+    Args:
+        img: Input BGR image (numpy array).
+        debug: If True, saves a debug image showing rotation.
+
+    Returns:
+        Rotated image.
+    """
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Threshold to get text as foreground
+    _, binary = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
+
+    # Find coordinates of non-zero pixels
+    coords = np.column_stack(np.where(binary > 0))
+    if len(coords) == 0:
+        # No text detected, return original
+        if debug:
+            print("No text detected, returning original image")
+        return img.copy()
+
+    # Compute minimum area rectangle
+    angle = cv2.minAreaRect(coords)[-1]
+
+    # Adjust angle to [-45, 45]
+    if angle < -45:
+        angle = -(90 + angle)
+    else:
+        angle = -angle
+
+    if debug:
+        print(f"Detected skew angle: {angle:.2f} degrees")
+
+    # Rotate image to deskew
+    (h, w) = img.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(img, M, (w, h),
+                             flags=cv2.INTER_CUBIC,
+                             borderMode=cv2.BORDER_REPLICATE)
+
+    if debug:
+        cv2.imwrite("output_steps/deskew_debug.jpg", rotated)
+
+    return rotated

@@ -11,8 +11,10 @@ model_path = "D:/Neb_Ocr_Final/trocr-base-printed"
 # model_path = 'microsoft/trocr-base-printed'
 preprocessor = TrOCRProcessor.from_pretrained(model_path, use_fast=False, local_files_only=True)
 warnings.filterwarnings("ignore")
-logging.set_verbosity_warning()
-
+# logging.set_verbosity_warning()
+# logging.set_verbosity_info()
+logging.set_verbosity_error()
+logging.disable_progress_bar() 
 
 class BetterHFTrOCR(VisionEncoderDecoderModel):
     """creates a TrOCR model"""

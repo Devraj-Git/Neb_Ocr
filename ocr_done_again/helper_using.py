@@ -6,9 +6,10 @@ from ocr_done_again.detect_columns import columns
 from ocr_done_again.utils import filter_rowdected, recompute_totals, reorder_subjects, count_long_white_clusters, merge_close_lines, get_selected_box, filter_boxes_by_first_row_limits, filter_columns_from_symbol_rem, group_boxes_into_rows, normalize_text, build_flat_student_records
 
 
-def NEB_OCR(img):
+def NEB_OCR(img, debug=False):
     img = cv2.imread(img)
-    cv2.imwrite("output_steps/step1_original.jpg", img)
+    if debug:
+        cv2.imwrite("output_steps/step1_original.jpg", img)
     # --- STEP 1: Remove green ---
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     lower_green = np.array([35, 40, 40])
@@ -68,14 +69,15 @@ def NEB_OCR(img):
     top_line = row_lines[0]
     bottom_line = row_lines[-1]
     cropped = img_no_green[top_line:bottom_line, :]
-    img_no_green1 = img_no_green.copy()
-    for y in rows_detected:
-        cv2.line(img_no_green1, (0, y), (width, y), (0, 0, 255), 2)  # red line, thickness 2
-    cv2.imwrite("output_steps/rows_detected.png", img_no_green1)
-    img_no_green2 = img_no_green.copy()
-    for y in row_lines:
-        cv2.line(img_no_green2, (0, y), (width, y), (0, 0, 255), 2)  # red line, thickness 2
-    cv2.imwrite("output_steps/rows_detected_forcrop.png", img_no_green2)
+    if debug:
+        img_no_green1 = img_no_green.copy()
+        for y in rows_detected:
+            cv2.line(img_no_green1, (0, y), (width, y), (0, 0, 255), 2)  # red line, thickness 2
+        cv2.imwrite("output_steps/rows_detected.png", img_no_green1)
+        img_no_green2 = img_no_green.copy()
+        for y in row_lines:
+            cv2.line(img_no_green2, (0, y), (width, y), (0, 0, 255), 2)  # red line, thickness 2
+        cv2.imwrite("output_steps/rows_detected_forcrop.png", img_no_green2)
 
 
     # --- STEP 3: Detect rows and columns ---
@@ -86,10 +88,11 @@ def NEB_OCR(img):
     h_lines = filtered_row_lines   # horizontal lines after filtering + shift
     v_lines = lines_x              # vertical safe lines
     binary_used = binary_cropped   # binary image of cropped region
-    preview = cropped.copy()
-    for y in v_lines:
-        cv2.line(preview, (y, 0), (y, cropped.shape[1]), (0, 0, 255), 1)
-    cv2.imwrite("output_steps/step52_manual_vlines_all.jpg", preview)
+    if debug:
+        preview = cropped.copy()
+        for y in v_lines:
+            cv2.line(preview, (y, 0), (y, cropped.shape[1]), (0, 0, 255), 1)
+        cv2.imwrite("output_steps/step52_manual_vlines_all.jpg", preview)
 
     # --- STEP 4: Detect first column ---
     first_row_top = h_lines[0]
@@ -127,25 +130,26 @@ def NEB_OCR(img):
             "original": (ox1, oy1 + top_line, ox2, oy2 + top_line),
             "adjusted": (ax1, ay1 + top_line, ax2, ay2 + top_line)
         })
+    if debug:
+        img_original_boxes = img.copy()
+        img_adjusted_boxes = img.copy()
+        for b in boxes_in_original:
+            # original box (blue)
+            x1, y1, x2, y2 = b["original"]
+            cv2.rectangle(img_original_boxes, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue
 
-    img_original_boxes = img.copy()
-    img_adjusted_boxes = img.copy()
-    for b in boxes_in_original:
-        # original box (blue)
-        x1, y1, x2, y2 = b["original"]
-        cv2.rectangle(img_original_boxes, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue
+            # adjusted box (green)
+            x1, y1, x2, y2 = b["adjusted"]
+            cv2.rectangle(img_adjusted_boxes, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Green
 
-        # adjusted box (green)
-        x1, y1, x2, y2 = b["adjusted"]
-        cv2.rectangle(img_adjusted_boxes, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Green
-
-    cv2.imwrite("output_steps/original_boxes.jpg", img_original_boxes)
-    cv2.imwrite("output_steps/adjusted_boxes.jpg", img_adjusted_boxes)
+        cv2.imwrite("output_steps/original_boxes.jpg", img_original_boxes)
+        cv2.imwrite("output_steps/adjusted_boxes.jpg", img_adjusted_boxes)
 
     adjusted_boxes = [b["adjusted"] for b in boxes_in_original]
 
     # --- Step 6: Extracting Text from images ---
     result_text = extract_data(img, adjusted_boxes)
+    # print(result_text)
     boxes_filtered, texts_filtered = filter_columns_from_symbol_rem(boxes_limited, result_text)
     rows_text = group_boxes_into_rows(boxes_filtered, texts_filtered)
     normalized_rows  = normalize_text(rows_text)

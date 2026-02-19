@@ -7,8 +7,9 @@ def columns(cropped):
     return main_col_operation(binary)
 
 def main_col_operation(binary,
+                       cropped=None,
                        proj_thresh_ratio=0.05,
-                       min_gap_width=20,
+                       min_gap_width=15,
                        min_col_distance=8,
                        remove_vertical_lines=False,
                        vertical_kernel_height_factor=0):
@@ -103,7 +104,13 @@ def main_col_operation(binary,
     if len(lines_x) == 0 or lines_x[-1] < width - 1:
         lines_x = lines_x + [width - 1]
 
+    # if cropped is not None:
+    #     preview = cropped.copy()
+    #     for x in lines_x:
+    #         cv2.line(preview, (x, 0), (x, cropped.shape[0]), (0, 0, 255), 1)
+    #     cv2.imwrite("output_steps/even_mergedlines.jpg", preview)
     # merge very-close x positions (caused by tiny splits)
+
     merged = []
     for x in sorted(lines_x):
         if not merged:
@@ -173,13 +180,15 @@ def columns_from_rows(cropped, filtered_row_lines, num_rows=7):
     return lines_x
 
 
-def columns_for_different(cropped, after_line_index, before_line_index, filtered_row_lines):
+def columns_for_different(cropped, after_line_index, before_line_index, filtered_row_lines, row_lines, debug=False):
     gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
     _, binary = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
+    top_line = row_lines[0]
+    row_lines_local = [y - top_line for y in row_lines]
     before_rows = []
-    if before_line_index >= 2:
-        before_rows.append((filtered_row_lines[before_line_index-2], filtered_row_lines[before_line_index-1]))
-        before_rows.append((filtered_row_lines[before_line_index-1], filtered_row_lines[before_line_index]))
+    # if before_line_index >= 2:
+    #     before_rows.append((filtered_row_lines[before_line_index-2], filtered_row_lines[before_line_index-1]))
+    #     before_rows.append((filtered_row_lines[before_line_index-1], filtered_row_lines[before_line_index]))
     after_rows = []
     for i in range(after_line_index, len(filtered_row_lines)-1):
         after_rows.append((filtered_row_lines[i], filtered_row_lines[i+1]))
@@ -196,44 +205,64 @@ def columns_for_different(cropped, after_line_index, before_line_index, filtered
         mask = even_mask[top:bottom, :]
         mask[mask == 255] = 0
         even_mask[top:bottom, :] = mask
+     # --- New code: make row_lines_local black with height 5 ---
+    height = 12
+    for y in row_lines_local:
+        y_start = max(0, y - height // 2)
+        y_end = min(binary.shape[0], y + height // 2 + 1)
+        odd_mask[y_start:y_end, :] = 0
+        even_mask[y_start:y_end, :] = 0
+    # ---------------------------------------------------------
+
     # Step 6: save final cropped images
-    cv2.imwrite("odd.jpg", odd_mask)
-    cv2.imwrite("even.jpg", even_mask)
+    if debug:
+        cv2.imwrite("output_steps/odd.jpg", odd_mask)
+        cv2.imwrite("output_steps/even.jpg", even_mask)
 
     return odd_mask, even_mask
 
 
-def merged_col_operation(cropped, after_line_index, before_line_index, filtered_row_lines):
+def merged_col_operation(cropped, after_line_index, before_line_index, filtered_row_lines, row_lines, debug=False):
     # Step 1: Create odd_mask and even_mask
-    odd_mask, even_mask = columns_for_different(cropped, after_line_index, before_line_index, filtered_row_lines)
+    odd_mask, even_mask = columns_for_different(cropped, after_line_index, before_line_index, filtered_row_lines, row_lines)
 
     # Step 2: Run main_col_operation on both masks
     odd_lines  = main_col_operation(odd_mask)
-    even_lines = main_col_operation(even_mask)
+    even_lines = main_col_operation(even_mask, cropped)
+    if debug:
+        preview = cropped.copy()
+        for x in odd_lines:
+            cv2.line(preview, (x, 0), (x, cropped.shape[0]), (0, 0, 255), 1)
+        cv2.imwrite("output_steps/odd_lines.jpg", preview)
+        preview = cropped.copy()
+        for x in even_lines:
+            cv2.line(preview, (x, 0), (x, cropped.shape[0]), (0, 0, 255), 1)
+        cv2.imwrite("output_steps/even_lines.jpg", preview)
 
     # Step 3: Build final lines per row
     row_indices  = []
     rows_of_interest = []
-    if before_line_index >= 2:
-        rows_of_interest.append((filtered_row_lines[before_line_index-2], filtered_row_lines[before_line_index-1]))
-        row_indices.append(before_line_index-2)
-        rows_of_interest.append((filtered_row_lines[before_line_index-1], filtered_row_lines[before_line_index]))
-        row_indices.append(before_line_index-1)
+    # if before_line_index >= 2:
+    #     rows_of_interest.append((filtered_row_lines[before_line_index-2], filtered_row_lines[before_line_index-1]))
+    #     row_indices.append(before_line_index-2)
+    #     rows_of_interest.append((filtered_row_lines[before_line_index-1], filtered_row_lines[before_line_index]))
+    #     row_indices.append(before_line_index-1)
     for i in range(after_line_index, len(filtered_row_lines)-1):
         rows_of_interest.append((filtered_row_lines[i], filtered_row_lines[i+1]))
         row_indices.append(i)
-
-    vis = cropped.copy()
+    if debug:
+        vis = cropped.copy()
     row_vlines = {}
     for idx, (top, bottom) in enumerate(rows_of_interest):
         row_idx = row_indices[idx]
         lines_x = even_lines if idx % 2 == 0 else odd_lines
         row_vlines[row_idx] = lines_x  # store per row
-
-        for x in lines_x:
-            cv2.line(vis, (x, top), (x, bottom), (0, 0, 255), 1)  # red lines
+        if debug:
+            for x in lines_x:
+                cv2.line(vis, (x, top), (x, bottom), (0, 0, 255), 1)  # red lines
 
     # Step 6: Save / return result
-    cv2.imwrite("merged_lines_on_cropped.jpg", vis)
+    if debug:
+        cv2.imwrite("output_steps/merged_lines_on_cropped.jpg", vis)
 
     return row_vlines
