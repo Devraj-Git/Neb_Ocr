@@ -42,7 +42,12 @@ class RadiantUltraScanner(ctk.CTk):
         self.selected_file = None
         self.uids = []
         self.rotation = 0 
-        
+        self.crop_start_x = 0
+        self.crop_start_y = 0
+        self.crop_rect = None
+        self.is_crop_mode = False
+        self.image_history = []
+
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -155,6 +160,8 @@ class RadiantUltraScanner(ctk.CTk):
         self.float_bar.place(relx=0.5, rely=0.92, anchor="center")
         
         self.create_dock_btn(self.float_bar, "⟳", self.rotate_image, COLORS["text_main"])
+        self.create_dock_btn(self.float_bar, "✂", self.toggle_crop_mode, COLORS["text_main"])
+        self.create_dock_btn(self.float_bar, "↶", self.undo_last_action, COLORS["text_main"])
         self.create_dock_btn(self.float_bar, "📥", self.save_image, COLORS["text_main"])
         self.create_dock_btn(self.float_bar, "⎙", self.print_image, COLORS["text_main"])
         self.create_dock_btn(self.float_bar, "🗑", self.clear_canvas, COLORS["danger"])
@@ -383,6 +390,118 @@ class RadiantUltraScanner(ctk.CTk):
                 
             except Exception as e:
                 self.log_message(f"Rotation Error: {str(e)}")
+
+    def toggle_crop_mode(self):
+        if not self.selected_file: return
+        self.is_crop_mode = not self.is_crop_mode
+        
+        if self.is_crop_mode:
+            self.display_label.configure(cursor="cross")
+            self.log_message("CROP MODE: Draw a box over the image to cut.")
+            # 1. UNBIND Dragging so the image stays still
+            self.display_label.unbind("<ButtonPress-1>")
+            self.display_label.unbind("<B1-Motion>")
+            # 2. BIND Crop Events
+            self.display_label.bind("<ButtonPress-1>", self.start_crop_select)
+            self.display_label.bind("<B1-Motion>", self.draw_crop_rect)
+            self.display_label.bind("<ButtonRelease-1>", self.execute_crop)
+        else:
+            self.display_label.configure(cursor="hand2")
+            # 3. REBIND Dragging when Crop is OFF
+            self.display_label.bind("<ButtonPress-1>", self.start_drag)
+            self.display_label.bind("<B1-Motion>", self.do_drag)
+            self.log_message("CROP MODE: Deactivated.")
+
+    def start_crop_select(self, event):
+        self.crop_start_x = event.x
+        self.crop_start_y = event.y
+        
+        # Initialize with 0 size, transparent background, and neon border
+        self.crop_rect = ctk.CTkFrame(
+            self.display_label, 
+            fg_color="transparent",
+            bg_color="transparent", 
+            border_width=2, 
+            border_color=COLORS["accent"],
+            width=0, 
+            height=0
+        )
+
+    def draw_crop_rect(self, event):
+        if not self.crop_rect or not self.crop_rect.winfo_exists():
+            return
+
+        # Calculate dimensions
+        cur_x, cur_y = event.x, event.y
+        x = min(self.crop_start_x, cur_x)
+        y = min(self.crop_start_y, cur_y)
+        w = abs(cur_x - self.crop_start_x)
+        h = abs(cur_y - self.crop_start_y)
+
+        # UPDATED: Use configure for size and place for position
+        self.crop_rect.configure(width=w, height=h)
+        self.crop_rect.place(x=x, y=y)
+
+    def execute_crop(self, event):
+        if not self.crop_rect or not self.crop_rect.winfo_exists():
+            return
+
+        try:
+            # 1. PREPARE UNDO: Save current state to history
+            with Image.open(self.selected_file) as current_img:
+                # We store a copy in memory to keep it fast
+                self.image_history.append(current_img.copy())
+                # Limit history to 5 steps to save RAM
+                if len(self.image_history) > 5: self.image_history.pop(0)
+
+            # 2. PERFORM CROP MATH
+            ui_w, ui_h = self.display_label.winfo_width(), self.display_label.winfo_height()
+            rect_x, rect_y = self.crop_rect.winfo_x(), self.crop_rect.winfo_y()
+            rect_w, rect_h = self.crop_rect.winfo_width(), self.crop_rect.winfo_height()
+
+            if rect_w < 10 or rect_h < 10: return # Ignore accidental clicks
+
+            with Image.open(self.selected_file) as img:
+                img = img.rotate(-self.rotation, expand=True)
+                scale_x, scale_y = img.size[0] / ui_w, img.size[1] / ui_h
+                
+                # 3. CROP & AUTO-SAVE
+                cropped_img = img.crop((rect_x * scale_x, rect_y * scale_y, 
+                                        (rect_x + rect_w) * scale_x, 
+                                        (rect_y + rect_h) * scale_y))
+                
+                # Overwrite the original file automatically
+                cropped_img.save(self.selected_file, quality=95)
+                self.rotation = 0 # Reset rotation since it's "baked" into the crop now
+            
+            self.log_message("Auto-Save: Image cropped and synchronized to disk.")
+            
+        except Exception as e:
+            self.log_message(f"Crop Error: {str(e)}")
+        finally:
+            if self.crop_rect.winfo_exists(): self.crop_rect.destroy()
+            self.toggle_crop_mode() # Exit crop mode
+            self.display_image()     # Refresh UI
+
+    def undo_last_action(self):
+        if not self.image_history:
+            self.log_message("Undo Warning: No further history available.")
+            return
+
+        try:
+            # 1. Pop the last image from history
+            last_img = self.image_history.pop()
+            
+            # 2. Overwrite the physical file
+            last_img.save(self.selected_file, quality=95)
+            
+            # 3. Refresh UI
+            self.rotation = 0 # Reset rotation for the restored image
+            self.display_image()
+            self.log_message("Undo Success: Previous state restored and saved.")
+            
+        except Exception as e:
+            self.log_message(f"Undo Error: {str(e)}")
 
     def save_image(self):
         if self.selected_file:
