@@ -134,6 +134,17 @@ class RadiantUltraScanner(ctk.CTk):
         self.display_label = ctk.CTkLabel(self.view_card, text="CORE IDLE\nFeed image via scanner or disk", font=("Inter", 15), text_color=COLORS["text_dim"])
         self.display_label.pack(expand=True, fill="both", padx=20, pady=20)
 
+        self.display_label.bind("<ButtonPress-1>", self.start_drag)
+        self.display_label.bind("<B1-Motion>", self.do_drag)
+        
+        # Bindings for Zooming (Mouse Wheel)
+        self.view_card.bind("<MouseWheel>", self.zoom_image)
+        self.display_label.bind("<MouseWheel>", self.zoom_image)
+
+        # Interaction Variables
+        self.zoom_level = 1.0
+        self.drag_data = {"x": 0, "y": 0}
+
         # UPGRADED DOCK: Professional High-Contrast Toolbar
         self.float_bar = ctk.CTkFrame(self.view_card, fg_color=COLORS["dock"], height=55, corner_radius=18, border_width=1, border_color=COLORS["border"])
         self.float_bar.place(relx=0.5, rely=0.92, anchor="center")
@@ -149,6 +160,32 @@ class RadiantUltraScanner(ctk.CTk):
         self.proceed_btn = ctk.CTkButton(self.main_view, text="PROCEED TO OCR ENGINE", command=self.run_ocr, width=350, height=60, corner_radius=30, fg_color=COLORS["success"], font=("Inter", 16, "bold"))
         self.proceed_btn.pack()
 
+    def start_drag(self, event):
+        """Record the global mouse position and the current label position."""
+        if self.selected_file:
+            self.drag_data["mouse_x"] = event.x_root
+            self.drag_data["mouse_y"] = event.y_root
+            self.drag_data["label_x"] = self.display_label.winfo_x()
+            self.drag_data["label_y"] = self.display_label.winfo_y()
+            self.display_label.configure(cursor="fleur")
+
+    def do_drag(self, event):
+        """Calculate movement based on global screen delta."""
+        if self.selected_file:
+            dx = event.x_root - self.drag_data["mouse_x"]
+            dy = event.y_root - self.drag_data["mouse_y"]
+            new_x = self.drag_data["label_x"] + dx
+            new_y = self.drag_data["label_y"] + dy
+            self.display_label.place(x=new_x, y=new_y, anchor="nw")
+
+    def zoom_image(self, event):
+        """Resizes the image and centers it."""
+        if not self.selected_file: return
+        if event.delta > 0: self.zoom_level *= 1.1
+        else: self.zoom_level /= 1.1
+        self.zoom_level = max(0.2, min(self.zoom_level, 4.0))
+        self.display_image()
+
     def create_dock_btn(self, parent, icon, command, color):
         btn = ctk.CTkButton(parent, text=icon, width=60, height=40, corner_radius=12, 
                              fg_color="transparent", text_color=color,
@@ -156,41 +193,28 @@ class RadiantUltraScanner(ctk.CTk):
         btn.pack(side="left", padx=10, pady=5)
 
     def run_hardware_scan(self):
-        # 1. Show the overlay
         self.overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
         self.load_info.pack(expand=True, pady=(0, 10))
         self.prog.pack(pady=10)
         self.prog.start()
-        
-        # 2. FORCE FULL REDRAW (Fixes the blank window)
         self.update() 
-        
         self.log_message("Initializing WIA hardware...")
-        
-        # 3. Ensure the thread is set to daemon=True
         scan_thread = threading.Thread(target=self.scan_thread_logic, daemon=True)
         scan_thread.start()
     
     def scan_thread_logic(self):
         pythoncom.CoInitialize() # Fixes "CoInitialize has not been called"
         try:
-            # Map your selected scanner UID here
             selected_name = self.scanner_menu.get()
             target_uid = self.uids[self.scanner_menu._values.index(selected_name)]
-            
             connected_device = connect_to_device_by_uid(device_uid=target_uid)
             img = scan_side(device=connected_device)
-            
-            # Save to local path
             save_path = os.path.join(os.path.dirname(__file__), "scanned_output.jpg")
             img.save(save_path, "JPEG", quality=95)
             self.selected_file = save_path
-            
-            # Signal main thread to update UI
             self.after(0, self.finish_scan_ui)
         except Exception as e:
             error_msg = str(e)
-            # Fixes the NameError: e by capturing it as 'm'
             self.after(0, lambda m=error_msg: messagebox.showerror("Hardware Error", m))
             self.after(0, lambda: self.overlay.place_forget())
         finally:
@@ -205,46 +229,37 @@ class RadiantUltraScanner(ctk.CTk):
 
     def run_ocr(self):
         if self.selected_file:
-            # 1. Disable the button so it can't be clicked again
             self.proceed_btn.configure(state="disabled", text="", fg_color=COLORS["sidebar"])
-            
-            # 2. Create a mini progress bar inside the button
             self.btn_loader = ctk.CTkProgressBar(self.proceed_btn, width=280, height=8, 
                                                 mode="indeterminate", 
                                                 progress_color=COLORS["accent"])
             self.btn_loader.place(relx=0.5, rely=0.5, anchor="center")
             self.btn_loader.start()
-            
             self.log_message("OCR Engine: Extracting high-precision data...")
-            
-            # 3. Start Thread
             threading.Thread(target=self.ocr_thread_logic, daemon=True).start()
         else:
             messagebox.showwarning("System", "Input buffer empty. Please scan a document first.")
 
     def ocr_thread_logic(self):
         try:
-            # 1. Get the list of dictionaries from your OCR function
             data_list = get_ocr_result(self.selected_file)
-            
-            # 2. Process and format each student record
             output = []
             output.append("="*50)
             output.append(f"TOTAL RECORDS FOUND: {len(data_list)}")
             output.append("="*50 + "\n")
 
             for student in data_list:
-                # Header Info
                 symbol = student.get('SYMBOL', 'N/A')
                 name = student.get('NAME OF THE STUDENT', 'N/A')
                 total = student.get('TOTAL', 'N/A')
                 rem = student.get('REM', 'N/A')
+                dob = student.get('DOB', 'N/A')
+                reg = student.get('REG.NO.', 'N/A')
                 
-                record = f"SYMBOL: {symbol} | NAME: {name}\n"
-                record += f"RESULT: {rem} | AGGREGATE: {total}\n"
+                record = f"SYMBOL: {symbol} | REG.NO.: {reg}\n | NAME: {name}\n | DOB: {dob}\n" 
+                record += f"REMARK: {rem} | TOTAL: {total}\n"
                 record += "-"*30 + "\n"
                 
-                # Subject Marks (Looping through Code 1 to 7)
                 for i in range(1, 8):
                     code = student.get(f'CODE{i}')
                     if code: # Only print if the subject exists
@@ -256,7 +271,6 @@ class RadiantUltraScanner(ctk.CTk):
                 record += "\n"
                 output.append(record)
 
-            # 3. Join all records and send to the UI
             final_text = "".join(output)
             self.after(0, lambda: self.finalize_ocr_button())
             self.after(0, lambda: self.log_message(final_text))
@@ -268,15 +282,10 @@ class RadiantUltraScanner(ctk.CTk):
             self.after(0, lambda: self.finalize_ocr_button(error=True))
 
     def finalize_ocr_button(self, results=None, error=None):
-        # 1. Stop and remove the mini loader
         if hasattr(self, 'btn_loader'):
             self.btn_loader.stop()
             self.btn_loader.destroy()
-        
-        # 2. Restore button state
         self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
-        
-        # 3. Handle data output
         if results:
             self.log_message(results)
             self.log_message("OCR Sequence: [SUCCESS]")
@@ -289,7 +298,6 @@ class RadiantUltraScanner(ctk.CTk):
         self.log_box.see("end")
 
     def select_file(self):
-        # FINAL UPGRADE: Validation - Restricts imports to only valid image types
         path = filedialog.askopenfilename(filetypes=[("Digital Imaging", "*.jpg *.jpeg *.png *.bmp")])
         if path:
             ext = os.path.splitext(path)[1].lower()
@@ -309,20 +317,26 @@ class RadiantUltraScanner(ctk.CTk):
                 self.display_label.configure(image="") 
                 img = Image.open(self.selected_file).rotate(-self.rotation, expand=True)
                 w, h = img.size
-                ratio = min(800/w, 500/h)
-                new_size = (int(w*ratio), int(h*ratio))
+                base_ratio = min(800/w, 500/h)
                 
-                # Create the CTK Image
-                ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=new_size)
+                final_w = int(w * base_ratio * self.zoom_level)
+                final_h = int(h * base_ratio * self.zoom_level)
+                self.current_preview_img = ctk.CTkImage(
+                    light_image=img, 
+                    dark_image=img, 
+                    size=(final_w, final_h)
+                )
+                card_w = self.view_card.winfo_width()
+                card_h = self.view_card.winfo_height()
+                if card_w <= 1: card_w = 850 
+                if card_h <= 1: card_h = 550
                 
-                # --- FIX STARTS HERE ---
-                # Save a reference to prevent garbage collection
-                self.current_preview_img = ctk_img 
+                pos_x = (card_w - final_w) // 2
+                pos_y = (card_h - final_h) // 2
+                self.display_label.configure(image=self.current_preview_img, text="", cursor="hand2")
+                self.display_label.place(x=pos_x, y=pos_y, anchor="nw")
                 
-                # Apply to label
-                self.display_label.configure(image=self.current_preview_img, text="")
                 self.update_idletasks()
-                # --- FIX ENDS HERE ---
                 
             except Exception as e:
                 self.log_message(f"Display Error: {str(e)}")
@@ -330,16 +344,9 @@ class RadiantUltraScanner(ctk.CTk):
     def rotate_image(self):
         if self.selected_file:
             try:
-                # 1. Open the physical file
                 with Image.open(self.selected_file) as img:
-                    # 2. Rotate by 90 degrees (negative for clockwise)
-                    # expand=True ensures the width/height swap correctly without clipping
                     rotated_img = img.rotate(-90, expand=True)
-                    
-                    # 3. Save the rotated image back to the same path
                     rotated_img.save(self.selected_file)
-                
-                # 4. Refresh the UI display
                 self.display_image()
                 self.log_message(f"Image physically rotated and saved.")
                 

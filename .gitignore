@@ -2,4 +2,7 @@ venv
 trocr-base-printed
 output_steps
 *.jpg
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
