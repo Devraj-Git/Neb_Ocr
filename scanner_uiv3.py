@@ -7,7 +7,8 @@ import datetime
 import threading
 import time
 from wia_scan import get_device_manager, connect_to_device_by_uid, scan_side
-from ocr_done_again.utils import get_next_filename, save_image_smart, to_roman
+from ocr_done_again.database import NEBDB
+from ocr_done_again.utils import get_next_filename, save_image_smart, to_english, to_roman
 from ocr_front import get_ocr_result
 import pythoncom
 from dotenv import load_dotenv
@@ -47,6 +48,7 @@ class RadiantUltraScanner(ctk.CTk):
         self.crop_rect = None
         self.is_crop_mode = False
         self.image_history = []
+        self.current_ocr_data = []
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -144,18 +146,17 @@ class RadiantUltraScanner(ctk.CTk):
         self.display_label = ctk.CTkLabel(self.view_card, text="CORE IDLE\nFeed image via scanner or disk", font=("Inter", 15), text_color=COLORS["text_dim"])
         self.display_label.pack(expand=True, fill="both", padx=20, pady=20)
 
+        # Bindings
         self.display_label.bind("<ButtonPress-1>", self.start_drag)
         self.display_label.bind("<B1-Motion>", self.do_drag)
-        
-        # Bindings for Zooming (Mouse Wheel)
         self.view_card.bind("<MouseWheel>", self.zoom_image)
         self.display_label.bind("<MouseWheel>", self.zoom_image)
 
-        # Interaction Variables
+        # Variables
         self.zoom_level = 1.0
-        self.drag_data = {"x": 0, "y": 0}
+        self.drag_data = {"mouse_x": 0, "mouse_y": 0, "label_x": 0, "label_y": 0}
 
-        # UPGRADED DOCK: Professional High-Contrast Toolbar
+        # Floating Toolbar
         self.float_bar = ctk.CTkFrame(self.view_card, fg_color=COLORS["dock"], height=55, corner_radius=18, border_width=1, border_color=COLORS["border"])
         self.float_bar.place(relx=0.5, rely=0.92, anchor="center")
         
@@ -166,11 +167,34 @@ class RadiantUltraScanner(ctk.CTk):
         self.create_dock_btn(self.float_bar, "⎙", self.print_image, COLORS["text_main"])
         self.create_dock_btn(self.float_bar, "🗑", self.clear_canvas, COLORS["danger"])
 
+        # Console Log
         self.log_box = ctk.CTkTextbox(self.main_view, height=100, fg_color="#020617", border_width=1, border_color=COLORS["border"], font=("JetBrains Mono", 11), text_color=COLORS["success"])
         self.log_box.pack(fill="x", pady=(0, 20))
 
-        self.proceed_btn = ctk.CTkButton(self.main_view, text="PROCEED TO OCR ENGINE", command=self.run_ocr, width=350, height=60, corner_radius=30, fg_color=COLORS["success"], font=("Inter", 16, "bold"))
-        self.proceed_btn.pack()
+        # --- PROFESSIONAL ACTION BAR (Side-by-Side) ---
+        self.button_row = ctk.CTkFrame(self.main_view, fg_color="transparent")
+        self.button_row.pack(fill="x")
+
+        self.proceed_btn = ctk.CTkButton(
+            self.button_row, text="PROCEED TO OCR ENGINE", 
+            command=self.run_ocr, width=350, height=60, 
+            corner_radius=30, fg_color=COLORS["success"], 
+            font=("Inter", 16, "bold")
+        )
+        self.proceed_btn.pack(side="left", expand=True, padx=(0, 5))
+
+        self.db_save_btn = ctk.CTkButton(
+            self.button_row, 
+            text="📥 COMMIT TO DATABASE", 
+            command=self.save_to_database,
+            width=350, height=60, 
+            corner_radius=30,
+            fg_color="#334155", # Professional slate for disabled state
+            state="disabled",
+            font=("Inter", 16, "bold")
+        )
+        self.db_save_btn.pack(side="right", expand=True, padx=(5, 0))
+
 
     def start_drag(self, event):
         """Record the global mouse position and the current label position."""
@@ -295,7 +319,7 @@ class RadiantUltraScanner(ctk.CTk):
                 output.append(record)
 
             final_text = "".join(output)
-            self.after(0, lambda: self.finalize_ocr_button())
+            self.after(0, lambda: self.finalize_ocr_button(data_list))
             self.after(0, lambda: self.log_message(final_text))
             self.after(0, lambda: self.log_message("OCR Sync: [DATA_DUMP_COMPLETE]"))
 
@@ -310,11 +334,65 @@ class RadiantUltraScanner(ctk.CTk):
             self.btn_loader.destroy()
         self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
         if results:
-            self.log_message(results)
-            self.log_message("OCR Sequence: [SUCCESS]")
+            self.current_ocr_data = results
+            self.db_save_btn.configure(state="normal", fg_color=COLORS["success"])
+            self.log_message("System: Records verified. Ready for Database Commit.")
         if error:
             self.log_message(f"OCR Error: {error}")
-            
+    
+    def save_to_database(self):
+        if not self.current_ocr_data:
+            self.log_message("Database Error: No data buffer found to commit.")
+            return
+
+        self.log_message("Database: Initializing secure handshake...")
+        self.db_save_btn.configure(state="disabled", text="⌛ COMMITTING...")
+        
+        threading.Thread(target=self.db_thread_logic, daemon=True).start()
+    
+    def db_thread_logic(self):
+        try:
+            db_engine = NEBDB() 
+            success_count = 0
+
+            for record in self.current_ocr_data:
+                formatted_row = {
+                    "Grade": to_english(self.grade_btn.get()),
+                    "Exam_Type": self.exam_btn.get(),
+                    "Exam_Year": self.year_box.get(),
+                    "SYMBOL": record.get('SYMBOL'),
+                    "REG_NO": record.get('REG.NO.'),
+                    "NAME_OF_THE_STUDENTS": record.get('NAME OF THE STUDENT'),
+                    "DOB": record.get('DOB'),
+                    "TOTAL": record.get('TOTAL'),
+                    "RESULT": record.get('REM'),
+                    "FILE_PATH": self.selected_file,
+                    "UI": True, # Manually set UI to True as requested
+                    # Subject Mapping (CODE, TH, PR, TOT)
+                    "CODE1": record.get('CODE1'), "TH1": record.get('TH1'), "PR1": record.get('PR1'), "TOT1": record.get('TOT1'),
+                    "CODE2": record.get('CODE2'), "TH2": record.get('TH2'), "PR2": record.get('PR2'), "TOT2": record.get('TOT2'),
+                    "CODE3": record.get('CODE3'), "TH3": record.get('TH3'), "PR3": record.get('PR3'), "TOT3": record.get('TOT3'),
+                    "CODE4": record.get('CODE4'), "TH4": record.get('TH4'), "PR4": record.get('PR4'), "TOT4": record.get('TOT4'),
+                    "CODE5": record.get('CODE5'), "TH5": record.get('TH5'), "PR5": record.get('PR5'), "TOT5": record.get('TOT5'),
+                    "CODE6": record.get('CODE6'), "TH6": record.get('TH6'), "PR6": record.get('PR6'), "TOT6": record.get('TOT6'),
+                    "CODE7": record.get('CODE7'), "TH7": record.get('TH7'), "PR7": record.get('PR7'), "TOT7": record.get('TOT7'),
+                }
+
+                # 3. Call your update_with_log function
+                # Since you said 'row' is always None for newly added rows:
+                db_engine.update_with_log(row=None, updated_row=formatted_row)
+                success_count += 1
+
+            # 4. Finalize UI
+            self.after(0, lambda: self.log_message(f"Database: [COMMIT_SUCCESS] {success_count} records synchronized."))
+            self.after(0, lambda: self.db_save_btn.configure(text="📥 COMMIT TO DATABASE", fg_color=COLORS["border"]))
+            self.after(0, lambda: messagebox.showinfo("Success", f"Successfully saved {success_count} records to NEB Database."))
+
+        except Exception as e:
+            error_msg = f"Database Critical Failure: {str(e)}"
+            self.after(0, lambda: self.log_message(error_msg))
+            self.after(0, lambda: self.db_save_btn.configure(state="normal", text="📥 RETRY COMMIT", fg_color=COLORS["danger"]))
+
     def log_message(self, msg):
         ts = datetime.datetime.now().strftime("%H:%M:%S")
         self.log_box.insert("end", f"[{ts}] {msg}\n")
@@ -489,13 +567,8 @@ class RadiantUltraScanner(ctk.CTk):
             return
 
         try:
-            # 1. Pop the last image from history
             last_img = self.image_history.pop()
-            
-            # 2. Overwrite the physical file
             last_img.save(self.selected_file, quality=95)
-            
-            # 3. Refresh UI
             self.rotation = 0 # Reset rotation for the restored image
             self.display_image()
             self.log_message("Undo Success: Previous state restored and saved.")

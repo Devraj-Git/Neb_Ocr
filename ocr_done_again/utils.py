@@ -1227,6 +1227,12 @@ def to_roman(grade):
         "12": "XII"
     }.get(grade, grade)
 
+def to_english(grade):
+    return {
+        "11": "Eleven",
+        "12": "Twelve"
+    }.get(grade, grade)
+
 def get_next_filename(folder_path):
     i = 1
     while True:
