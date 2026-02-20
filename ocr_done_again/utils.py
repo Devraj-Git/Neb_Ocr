@@ -362,7 +362,7 @@ def crop_to_content_new(roi, min_height=8):
     return mask[top2:bottom2+1, left2:right2+1], (left2, top2, right2, bottom2)
 
 
-def get_selected_box(case, row_lines, h_lines, filtered_row_lines, cropped, fixed_col_index, v_lines, min_density = 0.0025, debug=False):
+def get_selected_box(case, row_lines, h_lines, filtered_row_lines, cropped, fixed_col_index, v_lines, min_density = 0.0025, debug=True):
     """
         Case=True :- for uniform column
         Case=False :- for row based column
@@ -1170,7 +1170,7 @@ def filter_rowdected(rows_detected, min_group_size = 3, gap_threshold = 30):
 
     return filtered_rows_detected
 
-def deskew_image(img, debug=False):
+def deskew_image(img, debug=True):
     """
     Automatically rotate the image so that text is horizontal.
 
@@ -1250,3 +1250,33 @@ def save_image_smart(source_path, final_folder):
         img = Image.open(source_path)
         img.convert("RGB").save(save_path, "JPEG", quality=95)
     return save_path
+
+def extract_school_code(row_values):
+    """
+    Extracts school code and school name from a list of strings.
+    The first 4-digit number (not starting with 20) is the code.
+    Everything after the code in the same string is considered the school name.
+    """
+    School_Code = None
+    School_Name = None
+    School_Code_Flag = False
+
+    for cell in row_values:
+        # Find first 4-digit number not starting with 20
+        if School_Code is None:
+            match = re.search(r'\b(?!20)\d{4}\b', cell)
+            if match:
+                School_Code = match.group(0)
+                School_Code = str(School_Code).zfill(4)
+                School_Code_Flag = True
+                # Everything after the match is the school name
+                School_Name = cell[match.end():].strip()
+                # Clean common unwanted characters
+                School_Name = School_Name.replace(":", "").replace(";", "").replace("_", "").strip()
+                break  # stop after first code
+
+    # Safety check for long names
+    if School_Name is not None and len(School_Name) > 255:
+        School_Name = None
+
+    return School_Code, School_Name, School_Code_Flag

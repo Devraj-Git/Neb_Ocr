@@ -180,7 +180,7 @@ def columns_from_rows(cropped, filtered_row_lines, num_rows=7):
     return lines_x
 
 
-def columns_for_different(cropped, after_line_index, before_line_index, filtered_row_lines, row_lines, debug=False):
+def columns_for_different(cropped, after_line_index, before_line_index, filtered_row_lines, row_lines, debug=True):
     gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
     _, binary = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
     top_line = row_lines[0]
@@ -222,7 +222,7 @@ def columns_for_different(cropped, after_line_index, before_line_index, filtered
     return odd_mask, even_mask
 
 
-def merged_col_operation(cropped, after_line_index, before_line_index, filtered_row_lines, row_lines, debug=False):
+def merged_col_operation(cropped, after_line_index, before_line_index, filtered_row_lines, row_lines, debug=True):
     # Step 1: Create odd_mask and even_mask
     odd_mask, even_mask = columns_for_different(cropped, after_line_index, before_line_index, filtered_row_lines, row_lines)
 

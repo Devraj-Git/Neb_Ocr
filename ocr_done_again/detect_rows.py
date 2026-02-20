@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from ocr_done_again.utils import after_lines
 
-def rows_full(cropped, row_lines, debug=False):
+def rows_full(cropped, row_lines, debug=True):
     gray_cropped = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
     _, binary_cropped = cv2.threshold(gray_cropped, 150, 255, cv2.THRESH_BINARY_INV)
     # get_printed_only(binary_cropped)

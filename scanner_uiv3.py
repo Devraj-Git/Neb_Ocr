@@ -85,11 +85,40 @@ class RadiantUltraScanner(ctk.CTk):
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.pack_propagate(False)
 
+        # # Brand Header
+        # self.brand_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        # self.brand_frame.pack(pady=(40, 20), fill="x")
+        # self.logo = ctk.CTkLabel(self.brand_frame, text="NEB", font=ctk.CTkFont(family="Inter", size=32, weight="bold"), text_color=COLORS["accent"])
+        # self.logo.pack()
         # Brand Header
         self.brand_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         self.brand_frame.pack(pady=(40, 20), fill="x")
-        self.logo = ctk.CTkLabel(self.brand_frame, text="NEB", font=ctk.CTkFont(family="Inter", size=32, weight="bold"), text_color=COLORS["accent"])
-        self.logo.pack()
+
+        # Load Image
+        try:
+            from PIL import Image
+            img = Image.open("nepal_oemblem.png")  # make sure path is correct
+            self.emblem_icon = ctk.CTkImage(light_image=img, dark_image=img, size=(40, 40))
+        except Exception as e:
+            print("Logo Load Failed:", e)
+            self.emblem_icon = None
+
+        # Create inner frame for horizontal alignment
+        self.logo_row = ctk.CTkFrame(self.brand_frame, fg_color="transparent")
+        self.logo_row.pack()
+
+        # Image (LEFT)
+        self.emblem_label = ctk.CTkLabel(self.logo_row, text="", image=self.emblem_icon)
+        self.emblem_label.pack(side="left", padx=(0, 8))
+
+        # Text (RIGHT)
+        self.logo = ctk.CTkLabel(
+            self.logo_row,
+            text="NEB",
+            font=ctk.CTkFont(family="Inter", size=32, weight="bold"),
+            text_color=COLORS["accent"]
+        )
+        self.logo.pack(side="left")
         
         self.status_pill = ctk.CTkLabel(self.brand_frame, text="● SYSTEM ONLINE", font=("Inter", 10, "bold"), text_color=COLORS["success"], fg_color="#14532D", corner_radius=20, width=120, height=24)
         self.status_pill.pack(pady=10)
@@ -356,6 +385,7 @@ class RadiantUltraScanner(ctk.CTk):
             success_count = 0
 
             for record in self.current_ocr_data:
+                relative_path = os.path.relpath(self.selected_file, BASE_SAVE_PATH).replace("\\", "/")
                 formatted_row = {
                     "Grade": to_english(self.grade_btn.get()),
                     "Exam_Type": self.exam_btn.get(),
@@ -366,7 +396,15 @@ class RadiantUltraScanner(ctk.CTk):
                     "DOB": record.get('DOB'),
                     "TOTAL": record.get('TOTAL'),
                     "RESULT": record.get('REM'),
-                    "FILE_PATH": self.selected_file,
+                    "School_Code": record.get('School_Code'),
+                    "School_Name": record.get('School_Name'),
+                    "SEX": None,
+                    "BookName": None,
+                    "REMARKS": None,
+                    "ImageName": None,
+                    "QC_CHECK": None,
+                    "QC_REMARKS": None,
+                    "FILE_PATH": relative_path,
                     "UI": True, # Manually set UI to True as requested
                     # Subject Mapping (CODE, TH, PR, TOT)
                     "CODE1": record.get('CODE1'), "TH1": record.get('TH1'), "PR1": record.get('PR1'), "TOT1": record.get('TOT1'),

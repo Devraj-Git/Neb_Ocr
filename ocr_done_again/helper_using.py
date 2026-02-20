@@ -3,10 +3,10 @@ import numpy as np
 from ocr_done_again.core import extract_data
 from ocr_done_again.detect_rows import rows_full
 from ocr_done_again.detect_columns import columns
-from ocr_done_again.utils import filter_rowdected, recompute_totals, reorder_subjects, count_long_white_clusters, merge_close_lines, get_selected_box, filter_boxes_by_first_row_limits, filter_columns_from_symbol_rem, group_boxes_into_rows, normalize_text, build_flat_student_records
+from ocr_done_again.utils import crop_to_content, extract_school_code, filter_rowdected, recompute_totals, reorder_subjects, count_long_white_clusters, merge_close_lines, get_selected_box, filter_boxes_by_first_row_limits, filter_columns_from_symbol_rem, group_boxes_into_rows, normalize_text, build_flat_student_records
 
 
-def NEB_OCR(img, debug=False):
+def NEB_OCR(img, debug=True):
     img = cv2.imread(img)
     if debug:
         cv2.imwrite("output_steps/step1_original.jpg", img)
@@ -69,7 +69,31 @@ def NEB_OCR(img, debug=False):
     top_line = row_lines[0]
     bottom_line = row_lines[-1]
     cropped = img_no_green[top_line:bottom_line, :]
+    # school
+    new_top = max(top_line - 70, 0)  # ensure we don't go negative
+    new_bottom = top_line
+    school_cropped = img_no_green[new_top:new_bottom, :]
+    gray_cropped2 = cv2.cvtColor(school_cropped, cv2.COLOR_BGR2GRAY)
+    _, binary_cropped2 = cv2.threshold(gray_cropped2, 150, 255, cv2.THRESH_BINARY_INV)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))  # can try (3,3) or (5,5) if needed
+    binary_used2 = cv2.morphologyEx(binary_cropped2, cv2.MORPH_OPEN, kernel)
+    h, w = binary_used2.shape
+    binary_used2_cropped = binary_used2[:, 20 : w-20]
+    cropped2_content, bbox2 = crop_to_content(binary_used2_cropped)
+    if cropped2_content.size != 0:
+        left, top, right, bottom = bbox2
+        left += 20
+        right += 20
+        school_cropped = school_cropped[top:bottom+1, left:right+1, :]
+        boxes_sselected = [(0, 0, right-left, bottom-top)]
+        ocr_text = extract_data(school_cropped, boxes_sselected)
+        # print(ocr_text)
+        school_code, school_name, flag = extract_school_code(ocr_text)
+        # print("School_Code:", code)  # Code: 1717
+        # print("School_Name:", name) 
+        # print("Flag:", flag)  # True
     if debug:
+        cv2.imwrite(r"output_steps/cropped2.jpg", school_cropped)
         img_no_green1 = img_no_green.copy()
         for y in rows_detected:
             cv2.line(img_no_green1, (0, y), (width, y), (0, 0, 255), 2)  # red line, thickness 2
@@ -178,5 +202,7 @@ def NEB_OCR(img, debug=False):
     #     row = " | ".join(f"{k}={v}" for k, v in stu.items())
     #     print(f"Student {i}: {row}")
     #     print("")
-
+    for row in cleaned_data:
+        row['School_Code'] = school_code if school_code else None
+        row['School_Name'] = school_name if school_name else None
     return cleaned_data
