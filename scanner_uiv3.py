@@ -7,8 +7,13 @@ import datetime
 import threading
 import time
 from wia_scan import get_device_manager, connect_to_device_by_uid, scan_side
+from ocr_done_again.utils import get_next_filename, save_image_smart, to_roman
 from ocr_front import get_ocr_result
 import pythoncom
+from dotenv import load_dotenv
+load_dotenv()
+
+BASE_SAVE_PATH = os.getenv("BASE_SAVE_PATH")
 # Finalized 2026 Enterprise Palette
 COLORS = {
     "bg": "#020617",           
@@ -205,11 +210,22 @@ class RadiantUltraScanner(ctk.CTk):
     def scan_thread_logic(self):
         pythoncom.CoInitialize() # Fixes "CoInitialize has not been called"
         try:
+            # Get UI selections
+            selected_year = self.year_box.get()
+            selected_exam = self.exam_btn.get()
+            selected_grade = self.grade_btn.get()
+            roman_grade = to_roman(selected_grade)
+            year_folder = os.path.join(BASE_SAVE_PATH, selected_year)
+            exam_folder_name = f"{selected_year} {roman_grade} {selected_exam}"
+            final_folder = os.path.join(year_folder, exam_folder_name)
+            os.makedirs(final_folder, exist_ok=True)
+            save_path = get_next_filename(final_folder)
+            
             selected_name = self.scanner_menu.get()
             target_uid = self.uids[self.scanner_menu._values.index(selected_name)]
             connected_device = connect_to_device_by_uid(device_uid=target_uid)
             img = scan_side(device=connected_device)
-            save_path = os.path.join(os.path.dirname(__file__), "scanned_output.jpg")
+            # save_path = os.path.join(os.path.dirname(__file__), "scanned_output.jpg")
             img.save(save_path, "JPEG", quality=95)
             self.selected_file = save_path
             self.after(0, self.finish_scan_ui)
@@ -299,17 +315,32 @@ class RadiantUltraScanner(ctk.CTk):
 
     def select_file(self):
         path = filedialog.askopenfilename(filetypes=[("Digital Imaging", "*.jpg *.jpeg *.png *.bmp")])
-        if path:
-            ext = os.path.splitext(path)[1].lower()
-            if ext not in ['.jpg', '.jpeg', '.png', '.bmp']:
-                messagebox.showerror("Security", "Unsupported file format. Please select an image.")
-                self.log_message(f"Security Alert: Blocked unauthorized file type ({ext})")
-                return
-            
-            self.selected_file = path
+        if not path:
+            return
+        
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in ['.jpg', '.jpeg', '.png', '.bmp']:
+            messagebox.showerror("Security", "Unsupported file format. Please select an image.")
+            self.log_message(f"Security Alert: Blocked unauthorized file type ({ext})")
+            return
+        
+        try:
+            # ---- Get selections ----
+            selected_year = self.year_box.get()
+            selected_exam = self.exam_btn.get()
+            selected_grade = self.grade_btn.get()
+            roman_grade = to_roman(selected_grade)
+            year_folder = os.path.join(BASE_SAVE_PATH, selected_year)
+            exam_folder_name = f"{selected_year} {roman_grade} {selected_exam}"
+            final_folder = os.path.join(year_folder, exam_folder_name)
+            os.makedirs(final_folder, exist_ok=True)
+            self.selected_file = save_image_smart(path, final_folder)
             self.rotation = 0
             self.display_image()
             self.log_message(f"Secure Input: {os.path.basename(path)} loaded.")
+
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
     def display_image(self):
         if self.selected_file:

@@ -1,4 +1,8 @@
 
+import os
+import shutil
+
+from PIL import Image
 import cv2, difflib, re
 import numpy as np
 from ocr_done_again.detect_columns import merged_col_operation
@@ -1215,3 +1219,28 @@ def deskew_image(img, debug=False):
         cv2.imwrite("output_steps/deskew_debug.jpg", rotated)
 
     return rotated
+
+
+def to_roman(grade):
+    return {
+        "11": "XI",
+        "12": "XII"
+    }.get(grade, grade)
+
+def get_next_filename(folder_path):
+    i = 1
+    while True:
+        file_path = os.path.join(folder_path, f"{i}.jpg")
+        if not os.path.exists(file_path):
+            return file_path
+        i += 1
+
+def save_image_smart(source_path, final_folder):
+    ext = os.path.splitext(source_path)[1].lower()
+    save_path = get_next_filename(final_folder)
+    if ext in [".jpg", ".jpeg"]:
+        shutil.copy2(source_path, save_path)
+    else:
+        img = Image.open(source_path)
+        img.convert("RGB").save(save_path, "JPEG", quality=95)
+    return save_path
