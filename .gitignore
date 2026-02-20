@@ -2,3 +2,4 @@ venv
 trocr-base-printed
 output_steps
 *.jpg
+*.pyc

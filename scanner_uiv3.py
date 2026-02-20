@@ -205,8 +205,19 @@ class RadiantUltraScanner(ctk.CTk):
 
     def run_ocr(self):
         if self.selected_file:
-            self.log_message("OCR Engine: Analyzing document structure...")
-            # Start OCR in a background thread to prevent UI freezing
+            # 1. Disable the button so it can't be clicked again
+            self.proceed_btn.configure(state="disabled", text="", fg_color=COLORS["sidebar"])
+            
+            # 2. Create a mini progress bar inside the button
+            self.btn_loader = ctk.CTkProgressBar(self.proceed_btn, width=280, height=8, 
+                                                mode="indeterminate", 
+                                                progress_color=COLORS["accent"])
+            self.btn_loader.place(relx=0.5, rely=0.5, anchor="center")
+            self.btn_loader.start()
+            
+            self.log_message("OCR Engine: Extracting high-precision data...")
+            
+            # 3. Start Thread
             threading.Thread(target=self.ocr_thread_logic, daemon=True).start()
         else:
             messagebox.showwarning("System", "Input buffer empty. Please scan a document first.")
@@ -247,13 +258,31 @@ class RadiantUltraScanner(ctk.CTk):
 
             # 3. Join all records and send to the UI
             final_text = "".join(output)
+            self.after(0, lambda: self.finalize_ocr_button())
             self.after(0, lambda: self.log_message(final_text))
             self.after(0, lambda: self.log_message("OCR Sync: [DATA_DUMP_COMPLETE]"))
 
         except Exception as e:
             err = f"OCR Parse Error: {str(e)}"
             self.after(0, lambda: self.log_message(err))
+            self.after(0, lambda: self.finalize_ocr_button(error=True))
 
+    def finalize_ocr_button(self, results=None, error=None):
+        # 1. Stop and remove the mini loader
+        if hasattr(self, 'btn_loader'):
+            self.btn_loader.stop()
+            self.btn_loader.destroy()
+        
+        # 2. Restore button state
+        self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
+        
+        # 3. Handle data output
+        if results:
+            self.log_message(results)
+            self.log_message("OCR Sequence: [SUCCESS]")
+        if error:
+            self.log_message(f"OCR Error: {error}")
+            
     def log_message(self, msg):
         ts = datetime.datetime.now().strftime("%H:%M:%S")
         self.log_box.insert("end", f"[{ts}] {msg}\n")
@@ -276,11 +305,27 @@ class RadiantUltraScanner(ctk.CTk):
 
     def display_image(self):
         if self.selected_file:
-            img = Image.open(self.selected_file).rotate(-self.rotation, expand=True)
-            w, h = img.size
-            ratio = min(800/w, 550/h)
-            ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(int(w*ratio), int(h*ratio)))
-            self.display_label.configure(image=ctk_img, text="")
+            try:
+                self.display_label.configure(image="") 
+                img = Image.open(self.selected_file).rotate(-self.rotation, expand=True)
+                w, h = img.size
+                ratio = min(800/w, 500/h)
+                new_size = (int(w*ratio), int(h*ratio))
+                
+                # Create the CTK Image
+                ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=new_size)
+                
+                # --- FIX STARTS HERE ---
+                # Save a reference to prevent garbage collection
+                self.current_preview_img = ctk_img 
+                
+                # Apply to label
+                self.display_label.configure(image=self.current_preview_img, text="")
+                self.update_idletasks()
+                # --- FIX ENDS HERE ---
+                
+            except Exception as e:
+                self.log_message(f"Display Error: {str(e)}")
 
     def rotate_image(self):
         if self.selected_file:
@@ -315,13 +360,18 @@ class RadiantUltraScanner(ctk.CTk):
 
     def clear_canvas(self):
         self.selected_file = None
+        self.current_preview_img = None 
         self.display_label.configure(image=None, text="CORE IDLE\nWaiting for document input...")
+        self.update()
         self.log_message("Image buffer flushed.")
 
     def setup_loading_overlay(self):
-        self.overlay = ctk.CTkFrame(self, fg_color="#020617", corner_radius=0)
-        self.load_info = ctk.CTkLabel(self.overlay, text="ACQUIRING HARDWARE SIGNAL...", font=("Inter", 18, "bold"))
-        self.prog = ctk.CTkProgressBar(self.overlay, width=400, mode="indeterminate", progress_color=COLORS["accent"])
+        self.overlay = ctk.CTkFrame(self.view_card, fg_color=COLORS["bg"], corner_radius=25)
+    
+        self.load_info = ctk.CTkLabel(self.overlay, text="ACQUIRING HARDWARE SIGNAL...", 
+                                    font=("Inter", 16, "bold"), text_color=COLORS["accent"])
+        self.prog = ctk.CTkProgressBar(self.overlay, width=300, mode="indeterminate", 
+                                    progress_color=COLORS["accent"])
 
     def update_live_elements(self):
         self.time_lbl.configure(text=datetime.datetime.now().strftime("%I:%M:%S %p"))

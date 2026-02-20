@@ -1,0 +1,4 @@
+1) Increase the image size to fix dimension so that character may equal
+2) save it to the database
+3) edit functionality
+4) pr - remove
