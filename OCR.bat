@@ -1,0 +1,1 @@
+D:\Neb_Ocr_Final\venv\Scripts\python.exe d:/Neb_Ocr_Final/scanner_uiv3.py

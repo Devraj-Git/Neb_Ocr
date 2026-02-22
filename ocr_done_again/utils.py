@@ -571,14 +571,14 @@ def normalize_after_key(key, value, row):
             return key, date_val
         parts = []
         current_idx = None
-        for i, (txt, _) in enumerate(row):
+        for i, (txt, *_) in enumerate(row):
             if value in txt:
                 current_idx = i
                 break
         if current_idx is not None:
             j = current_idx
             while j < current_idx+3 and j < len(row):
-                nxt_txt, _ = row[j]
+                nxt_txt, *_ = row[j]
                 nxt_val = re.sub(r'[^0-9]', '', nxt_txt)
                 if nxt_val.isdigit():
                     digits = nxt_val
@@ -731,7 +731,8 @@ def build_flat_student_records(rows):
                     key = f"{h_text_upper}{subj_count}"
             else:
                 key = h_text
-            record[key] = val
+            if not str(val).upper().startswith('CASH'):
+                record[key] = val
 
         # snap extra row (DOB, AMOUNT, etc.)
         snapped_extra, unmatched_cells = snap_row(even_row, header2)
