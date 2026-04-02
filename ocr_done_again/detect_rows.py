@@ -67,7 +67,7 @@ def rows_full(cropped, row_lines, debug=True):
     top_line = row_lines[0]
     row_lines_local = [y - top_line for y in row_lines]
     # print(row_lines_local)
-    TOL = 15
+    TOL = 40
     filtered = [
         fy for fy in final_rows
         if not any(abs(fy - orig) <= TOL for orig in row_lines_local)

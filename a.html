@@ -1,0 +1,122 @@
+<html>
+  <head>
+    <title>WebSocket Test</title>
+  </head>
+  <body>
+    
+	<table>
+	
+		
+	<tr>
+	<td>InputData :</td>
+	<td><textarea id="name" cols=100 rows=10 ></textarea></td>
+	</tr>
+	
+	<td>&nbsp;</td>
+	<td>&nbsp;</td>
+	</tr>
+
+	<tr>
+	<td>
+	<input type="button" value="FormSign" onClick='call("signData",document.getElementById("name").value)'>
+	</td>
+    </tr>
+
+	<tr>
+	<td>&nbsp;</td>
+	<td>&nbsp;</td>
+	</tr>
+	<tr>
+	<td>Output signedData :</td>
+	<td><textarea id="signData" cols=100 rows=20 readonly = "readonly"></textarea></td>
+	</tr>
+
+	</table>
+	
+  </body>
+  
+  <script type="text/javascript">
+  
+  var ListeningPort = 8080;
+  
+  var PortList = [8080, 1645, 1812, 2083, 2948];
+  var connection;
+  var errorCount=0;
+  var index=0;
+
+  function SetConnectionPort(port)
+  {
+  index++;
+  	if ("WebSocket" in window)
+  	{
+  		setTimeout(function()
+  		{
+  			var ws = new WebSocket("wss://127.0.0.1:"+port);
+  			ws.onopen = function()
+  			{
+  				try
+  				{
+  					console.log('Connection Opened');
+  				}
+  				catch(err){}
+  			};
+  			
+  			ws.onmessage = function (evt) 
+  			{
+  				try
+  				{
+						connection = ws;
+  						alert("first "+evt.data);
+											
+  				}
+  				catch(err){
+  					 alert('error');
+  					
+  				}
+  			};
+			
+			ws.onerror = function(err)
+			{
+			errorCount++;
+			if(index==5 && errorCount==5)
+			{
+			alert("Kindly check the server connection.");
+			}
+			};
+			
+  		}, 1);
+  	}
+  }
+
+  for(var i = 0; i < PortList.length; i++)
+  {
+  	SetConnectionPort(PortList[i]);
+  }
+  
+
+function call(txf1,msg)
+{
+
+if(connection==null)
+{
+alert('Please check the server connection2');
+return;
+}
+connection.send(msg);
+		
+connection.onerror = function (error) 
+{
+  alert('Please check the server connection: ' + error);
+  document.getElementById("signData").value=error;
+};
+connection.onmessage = function (e) 
+{
+  if(e.data.indexOf("subProtocol")==-1)
+    document.getElementById(txf1).value=e.data;
+};
+}
+ 
+
+</script>
+  
+</html>

@@ -66,9 +66,46 @@ def NEB_OCR(img, debug=True):
                 pass
                 break  # good distribution, stop
         continuous_thresh -= 0.01   # step down threshold
+    
+    # --- STEP X: Detect left and right boundaries using row bands ---
+    band_height = 10
+    height, width = binary_expanded.shape
+    mask = np.zeros_like(binary_expanded)
+    # Combine bands around each detected row
+    for y in row_lines:
+        y1 = max(0, y - band_height)
+        y2 = min(height, y + band_height)
+        mask[y1:y2, :] = binary_expanded[y1:y2, :]
+    # Collapse vertically → get column strength
+    col_sum = np.sum(mask > 0, axis=0)
+    # Threshold (adjust if needed)
+    col_thresh = np.max(col_sum) * 0.3
+    col_mask = col_sum > col_thresh
+    # Get candidate x positions
+    xs = np.where(col_mask)[0]
+    left, right = 0, width  # fallback
+    if len(xs) > 0:
+        # --- Remove small noisy segments ---
+        segments = np.split(xs, np.where(np.diff(xs) > 1)[0] + 1)
+        min_width = 50  # tune based on your document
+        segments = [seg for seg in segments if len(seg) > min_width]
+        if len(segments) > 0:
+            left = segments[0][0]
+            right = segments[-1][-1]
+        else:
+            # fallback if all segments are small
+            left = xs[0]
+            right = xs[-1]
+    # Optional padding (very useful)
+    pad = 50
+
+    left_line = max(0, left - pad)
+    right_line = min(width, right + pad)
+
     top_line = row_lines[0]
     bottom_line = row_lines[-1]
-    cropped = img_no_green[top_line:bottom_line, :]
+
+    cropped = img_no_green[top_line:bottom_line, left_line:right_line]
     # school
     new_top = max(top_line - 70, 0)  # ensure we don't go negative
     new_bottom = top_line
@@ -151,8 +188,8 @@ def NEB_OCR(img, debug=True):
         ox1, oy1, ox2, oy2 = b["original"]
         ax1, ay1, ax2, ay2 = b["adjusted"]
         boxes_in_original.append({
-            "original": (ox1, oy1 + top_line, ox2, oy2 + top_line),
-            "adjusted": (ax1, ay1 + top_line, ax2, ay2 + top_line)
+            "original": (ox1 + left_line, oy1 + top_line, ox2 + left_line, oy2 + top_line),
+            "adjusted": (ax1 + left_line, ay1 + top_line, ax2 + left_line, ay2 + top_line)
         })
     if debug:
         img_original_boxes = img.copy()

@@ -7,8 +7,8 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 import traceback
 import os
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
-model_path = "D:/Neb_Ocr_Final/trocr-base-printed"
-# model_path = 'microsoft/trocr-base-printed'
+model_path = "D:/Neb_Ocr_Final/model"
+# model_path = 'microsoft/model'
 preprocessor = TrOCRProcessor.from_pretrained(model_path, use_fast=False, local_files_only=True)
 warnings.filterwarnings("ignore")
 logging.set_verbosity_error()

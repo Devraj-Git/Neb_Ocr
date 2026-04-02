@@ -1,5 +1,5 @@
 venv
-trocr-base-printed
+model
 output_steps
 *.jpg
 __pycache__/

@@ -8,3 +8,4 @@ def get_ocr_result(img):
 
 # get_ocr_result('D:/xampp/htdocs/neb/img/2070/2070 XII Reg Science/Book 3 2070 XII Reg Science 1716-2518/402.jpg')
 # get_ocr_result('D:/Neb_Ocr_Final/scanned_output.jpg')
+ 

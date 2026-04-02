@@ -2,3 +2,14 @@
 2) save it to the database
 3) edit functionality
 4) pr - remove
+
+
+image_to_be_add.py 
+    => find 0 data in database containing images
+    => give it to the ocr 
+    => insert it to the databse
+
+
+
+UI = 1   => for adding data from database
+UI = 2   => for adding data from o data image
