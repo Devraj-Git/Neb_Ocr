@@ -151,7 +151,7 @@ if __name__ == '__main__':
             database=os.getenv("DATABASE"),
         )
     
-    which_year = 2070         
+    which_year = 2069       
     DELETE_MISSING_PATHS = False # 2058 True 
 
     cursor = db.cursor()
@@ -200,7 +200,7 @@ if __name__ == '__main__':
                 sys.exit(0)
 
             excel_file_paths.add(FILE_PATH)
-            original_count = row[1]['Orginal_Count']
+            original_count = row[1].iloc[1]
             real_count = row[1]['Real_Count']
             if pd.isna(original_count):
                 original_count = 0  

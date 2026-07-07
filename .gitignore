@@ -1,5 +1,5 @@
 venv
-model
+model*
 output_steps
 *.jpg
 __pycache__/
@@ -8,3 +8,4 @@ __pycache__/
 *.pyd
 .env
 test
+MiniCPM_weights/
