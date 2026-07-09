@@ -1,0 +1,749 @@
+{
+  "school_code": "2738",
+  "school_name": "Bhanu Bhakta Memorial H S School, Pani Pokhari, Kathmandu",
+  "page_number": "/77",
+  "examination_year": "2069",
+  "students": [
+    {
+      "symbol_number": "22708949",
+      "registration_number": "682738012",
+      "student_name": "Anil Thapa",
+      "date_of_birth": "2050/01/30",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": true,
+          "theory": "A",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": true,
+          "theory": "A",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "MATHS",
+          "extra": true,
+          "theory": "A",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "19",
+          "practical": "19",
+          "total": "38"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "15",
+          "practical": "15",
+          "total": "30"
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "15",
+          "practical": "15",
+          "total": "30"
+        }
+      ],
+      "grand_total": "049",
+      "remark": "FAILS"
+    },
+    {
+      "symbol_number": "22708952",
+      "registration_number": "682738016",
+      "student_name": "Anuj Kumal",
+      "date_of_birth": "2050/05/04",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "60",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "68",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "28",
+          "practical": "21",
+          "total": "49"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "58",
+          "practical": "16",
+          "total": "74"
+        },
+        {
+          "subject_name": "MATHS",
+          "extra": false,
+          "theory": "42",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "42",
+          "practical": null,
+          "total": null
+        }
+      ],
+      "grand_total": "293",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708953",
+      "registration_number": "682738017",
+      "student_name": "Arati K.C.",
+      "date_of_birth": "2050/10/04",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "63",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "72",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "27",
+          "practical": "19",
+          "total": "46"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "51",
+          "practical": "20",
+          "total": "71"
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "47",
+          "practical": "20",
+          "total": "67"
+        }
+      ],
+      "grand_total": "319",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708957",
+      "registration_number": "682738021",
+      "student_name": "Ashish Thapa",
+      "date_of_birth": "2051/03/18",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "44",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "65",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "27",
+          "practical": "19",
+          "total": "46"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "54",
+          "practical": "15",
+          "total": "69"
+        },
+        {
+          "subject_name": "MATHS",
+          "extra": false,
+          "theory": "40",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "47",
+          "practical": "24",
+          "total": "71"
+        }
+      ],
+      "grand_total": "264",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708960",
+      "registration_number": "682738024",
+      "student_name": "Ashmita Thapa",
+      "date_of_birth": "2050/12/15",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "67",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "72",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "35",
+          "practical": "25",
+          "total": "60"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "44",
+          "practical": "24",
+          "total": "68"
+        },
+        {
+          "subject_name": "MATHS",
+          "extra": false,
+          "theory": "35",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "47",
+          "practical": "24",
+          "total": "71"
+        }
+      ],
+      "grand_total": "338",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708963",
+      "registration_number": "682738027",
+      "student_name": "Avishu Lamsal",
+      "date_of_birth": "2051/01/21",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "53",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "64",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "18*",
+          "practical": "20",
+          "total": "38"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "52",
+          "practical": "17",
+          "total": "69"
+        },
+        {
+          "subject_name": "MATHS",
+          "extra": false,
+          "theory": "01*",
+          "practical": "01*",
+          "total": "02*"
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "43",
+          "practical": "20",
+          "total": "63"
+        }
+      ],
+      "grand_total": "287",
+      "remark": "FAIL1"
+    },
+    {
+      "symbol_number": "22708964",
+      "registration_number": "682738028",
+      "student_name": "Ayesha Gautam",
+      "date_of_birth": "2050/07/28",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "72",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "75",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "49",
+          "practical": "25",
+          "total": "74"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "56",
+          "practical": "22",
+          "total": "78"
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "54",
+          "practical": "24",
+          "total": "78"
+        }
+      ],
+      "grand_total": "377",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708965",
+      "registration_number": "682738029",
+      "student_name": "Bhawana Khatri",
+      "date_of_birth": "2051/12/20",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "73",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "76",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "55",
+          "practical": "25",
+          "total": "80"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "62",
+          "practical": "25",
+          "total": "87"
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "49",
+          "practical": "25",
+          "total": "74"
+        }
+      ],
+      "grand_total": "390",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708966",
+      "registration_number": "682738030",
+      "student_name": "Bhupendra K.C.",
+      "date_of_birth": "2051/08/12",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "68",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "72",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "39",
+          "practical": "24",
+          "total": "63"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "41",
+          "practical": "24",
+          "total": "65"
+        },
+        {
+          "subject_name": "MATHS",
+          "extra": false,
+          "theory": "55",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "55",
+          "practical": null,
+          "total": null
+        }
+      ],
+      "grand_total": "323",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708978",
+      "registration_number": "682738043",
+      "student_name": "Binita Balami",
+      "date_of_birth": "2050/10/11",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "62",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "62",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "30",
+          "practical": "19",
+          "total": "49"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "48",
+          "practical": "21",
+          "total": "69"
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "33",
+          "practical": "20",
+          "total": "53"
+        }
+      ],
+      "grand_total": "295",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708984",
+      "registration_number": "682738049",
+      "student_name": "Bishakha Tuladhar",
+      "date_of_birth": "2050/11/23",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "71",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "68",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "32",
+          "practical": "23",
+          "total": "55"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "40",
+          "practical": "23",
+          "total": "63"
+        },
+        {
+          "subject_name": "MATHS",
+          "extra": false,
+          "theory": "44",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "44",
+          "practical": null,
+          "total": null
+        }
+      ],
+      "grand_total": "301",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708987",
+      "registration_number": "682738053",
+      "student_name": "Deepa Dhital",
+      "date_of_birth": "2050/08/13",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "72",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "66",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "37",
+          "practical": "22",
+          "total": "59"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "40",
+          "practical": "23",
+          "total": "63"
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "36",
+          "practical": "23",
+          "total": "59"
+        }
+      ],
+      "grand_total": "319",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708989",
+      "registration_number": "682738055",
+      "student_name": "Deepa Lama Tamang",
+      "date_of_birth": "2050/01/17",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "57",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "66",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "36",
+          "practical": "21",
+          "total": "57"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "39",
+          "practical": "22",
+          "total": "61"
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "29",
+          "practical": "22",
+          "total": "51"
+        }
+      ],
+      "grand_total": "292",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708993",
+      "registration_number": "682738061",
+      "student_name": "Gagan Thapa",
+      "date_of_birth": "2050/06/24",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "62",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "69",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "27",
+          "practical": "20",
+          "total": "47"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "42",
+          "practical": "13",
+          "total": "55"
+        },
+        {
+          "subject_name": "MATHS",
+          "extra": false,
+          "theory": "35",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "35",
+          "practical": null,
+          "total": null
+        }
+      ],
+      "grand_total": "268",
+      "remark": "PASS"
+    },
+    {
+      "symbol_number": "22708999",
+      "registration_number": "682738068",
+      "student_name": "Jawed Hassan",
+      "date_of_birth": "2050/04/20",
+      "subjects": [
+        {
+          "subject_name": "C.ENG",
+          "extra": false,
+          "theory": "70",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "C.NEP",
+          "extra": false,
+          "theory": "76",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "PHY",
+          "extra": false,
+          "theory": "37",
+          "practical": "24",
+          "total": "61"
+        },
+        {
+          "subject_name": "CHEM",
+          "extra": false,
+          "theory": "37",
+          "practical": "24",
+          "total": "61"
+        },
+        {
+          "subject_name": "MATHS",
+          "extra": false,
+          "theory": "69",
+          "practical": null,
+          "total": null
+        },
+        {
+          "subject_name": "BIO",
+          "extra": false,
+          "theory": "69",
+          "practical": null,
+          "total": null
+        }
+      ],
+      "grand_total": "337",
+      "remark": "PASS"
+    }
+  ],
+  "handwritten_marginal_notes": [
+    "Page # 77"
+  ]
+}

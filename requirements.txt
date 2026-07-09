@@ -45,6 +45,7 @@ plyer==2.1.0
 prov==2.1.1
 puremagic==1.30
 pycparser==2.23
+ollama
 pydot==4.0.1
 PyKCS11==1.5.18
 PyMuPDF==1.26.6

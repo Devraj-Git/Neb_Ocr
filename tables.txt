@@ -1,0 +1,70 @@
+Table: students_subject
+Columns:
+id bigint AI PK 
+created_on datetime(6) 
+updated_on datetime(6) 
+code varchar(45)
+
+Table: students_student
+Columns:
+id bigint AI PK 
+created_on datetime(6) 
+updated_on datetime(6) 
+symbol_no varchar(20) 
+reg_no varchar(20) 
+name varchar(100) 
+sex varchar(10) 
+dob varchar(20)
+
+able: students_school
+Columns:
+id bigint AI PK 
+created_on datetime(6) 
+updated_on datetime(6) 
+code varchar(10) 
+name varchar(255)
+
+
+
+Table: students_result
+Columns:
+id bigint AI PK 
+created_on datetime(6) 
+updated_on datetime(6) 
+total int 
+result varchar(20) 
+remarks varchar(45) 
+book_name varchar(45) 
+image_name varchar(45) 
+file_path varchar(100) 
+qc_check varchar(45) 
+qc_remarks varchar(45) 
+cluster_id varchar(45) 
+ui varchar(45) 
+exam_id bigint 
+school_id bigint 
+student_id bigint 
+is_legacy_image tinyint(1)
+
+
+
+Table: students_mark
+Columns:
+id bigint AI PK 
+created_on datetime(6) 
+updated_on datetime(6) 
+theory varchar(10) 
+practical varchar(10) 
+total varchar(10) 
+result_id bigint 
+subject_id bigint
+
+
+Table: students_exam
+Columns:
+id bigint AI PK 
+created_on datetime(6) 
+updated_on datetime(6) 
+grade varchar(45) 
+exam_type varchar(45) 
+exam_year varchar(10)
