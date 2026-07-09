@@ -1,26 +1,47 @@
+from enum import Enum
+import time
+
+from PIL import Image
 import ollama
 import os
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
+class Grade(str, Enum):
+    ELEVEN = "Eleven"
+    TWELVE = "Twelve"
+
+class ExamType(str, Enum):
+    REGULAR = "Regular"
+    PARTIAL = "Partial"
+    SUPPLEMENTARY = "Supplementary"
+
+class Remark(str, Enum):
+    PASS = "PASS"
+    FAIL1 = "FAIL1"
+    FAIL2 = "FAIL2"
+    FAIL3 = "FAIL3"
+    FAIL4 = "FAIL4"
+    FAIL5 = "FAIL5"
+    FAIL6 = "FAIL6"
+    FAIL7 = "FAIL7"
+    
 # 1. Define the exact, repeatable structure for EVERY student row
 class SubjectScores(BaseModel):
-    subject_name: str = Field(description="Name of the subject, e.g., C.ENG, C.NEP, PHY, CHEM, BIO, or MATHS")
-    theory: Optional[str] = Field(None, description="Theory marks (TH), Only *, Character and Number and allowed")
-    practical: Optional[str] = Field(None, description="Practical marks (PR) if present. Only *, Character and Number and allowed")
-    total: Optional[int] = Field(None, description="Total marks for this subject (TOT), Total marks only if physically printed under this subject. Only Number and allowed")
-    extra: bool = Field(
-        description="True if this subject appearing on the second row or date of birth row or the row in which student name registration number is not present (e.g. MATHS, COMP, OPTIONAL). False otherwise."
-    )
+    subject_name: str
+    theory: Optional[str]
+    practical: Optional[str]
+    total: Optional[int]
+    extra: bool
 
 class StudentRecord(BaseModel):
     symbol_number: str
     registration_number: str
     student_name: str
     date_of_birth: str
-    subjects: List[SubjectScores] = Field(description="List of all subjects and scores for this student")
-    grand_total: int = Field(description="The TOT / TOTAL column score at the end, Only Number and allowed")
-    remark: str = Field(description="Only PASS, FAIL1, FAIL2, FAIL3, FAIL4, FAIL5, FAIL6, FAIL7 allowed.")
+    subjects: List[SubjectScores]
+    grand_total: int
+    remark: Remark
 
 class NEBGradingSheet(BaseModel):
     school_code: int = Field(
@@ -29,20 +50,26 @@ class NEBGradingSheet(BaseModel):
     school_name: str
     page_number: int = Field(description="Only Digits/Numbers allowed.")
     examination_year: int = Field(description="Only Digits/Numbers of BS Years allowed.")
-    grade: str = Field(description="Only Eleven or Twelve allowed.")
-    exame_Type: int = Field(description="Only Regular/Pratial/Supplementary allowed.")
+    grade: Grade
+    exame_Type: ExamType
     students: List[StudentRecord]
     handwritten_marginal_notes: List[str] = Field(description="Extract any handwritten text or correction notes found at the bottom or margins")
-
+    
 # 2. File verification
 image_filename = "77.jpg"  # Ensure this matches your file name exactly
+image_new_filename = "resized1.png"
 if not os.path.exists(image_filename):
     print(f"Error: Could not find '{image_filename}'")
     exit()
 
+img = Image.open(image_filename)
+img.thumbnail((1400, 1400))
+img.save(image_new_filename)
+
 print("Extracting structured schema using Qwen3-VL-8B-Instruct...")
 
 try:
+    t0 = time.time()
     # 3. Request data with enforced schema constraint
     response = ollama.chat(
         model="qwen3-vl:8b-instruct",
@@ -88,24 +115,24 @@ try:
 
                         8. Follow the provided JSON schema exactly. Every extracted value must be mapped to the correct field according to the detected table layout.
                         """,
-            "images": [image_filename]
+            "images": [image_new_filename]
         }],
         format=NEBGradingSheet.model_json_schema(),
         options={
-            "num_ctx": 16384,
-            "num_predict": 8192,
+            "num_ctx": 10288,
+            # "num_predict": 8192,
             "temperature": 0.0,
             "top_k": 1,
             "top_p": 0.1,
             "seed": 42,
-            "repeat_penalty": 1.05,
+            "repeat_penalty": 1.0,
         }
     )
-    
+    print(f"Elapsed: {time.time() - t0:.2f}s")
     # 4. Save and Output clean JSON
     json_output = response['message']['content']
-    print("\n--- Structured JSON Output ---")
-    print(json_output)
+    # print("\n--- Structured JSON Output ---")
+    # print(json_output)
     
     # Optional: Automatically saves the result to a clean dataset file
     output_json_path = os.path.splitext(image_filename)[0] + "_extracted2.json"
