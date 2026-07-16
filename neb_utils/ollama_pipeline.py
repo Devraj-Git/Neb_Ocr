@@ -16,8 +16,24 @@ from typing import Optional, List
 import mysql.connector
 import ollama
 from PIL import Image
+from dotenv import load_dotenv
 
 from .schemas import NEBGradingSheet
+
+
+# ─────────────────────────────────────────────
+# TABLE NAME CONFIG — loaded from .env so you
+# can rename DB tables without touching code
+# ─────────────────────────────────────────────
+
+load_dotenv()
+
+TABLE_SCHOOL  = os.getenv("TABLE_SCHOOL", "students_school")
+TABLE_EXAM    = os.getenv("TABLE_EXAM", "students_exam")
+TABLE_SUBJECT = os.getenv("TABLE_SUBJECT", "students_subject")
+TABLE_STUDENT = os.getenv("TABLE_STUDENT", "students_student")
+TABLE_RESULT  = os.getenv("TABLE_RESULT", "students_result")
+TABLE_MARK    = os.getenv("TABLE_MARK", "students_mark")
 
 
 # ─────────────────────────────────────────────
@@ -216,29 +232,26 @@ def _now():
 
 # ─────────────────────────────────────────────
 # 4. DATABASE SAVE — Normalized 6-table schema
-#    Tables: students_school, students_exam, students_subject,
-#            students_student, students_result, students_mark
 # ─────────────────────────────────────────────
 
 def _upsert_school(conn, code: str, name: str) -> int:
     """
     Find school by code (unique), or create it. Return its ID.
-    Table: students_school (columns: code[unique], name)
     """
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id FROM students_school WHERE code = %s", (code,))
+    cursor.execute(f"SELECT id FROM {TABLE_SCHOOL} WHERE code = %s", (code,))
     row = cursor.fetchone()
     if row:
         # Update name in case it changed
         cursor.execute(
-            "UPDATE students_school SET name = %s, updated_on = %s WHERE id = %s",
+            f"UPDATE {TABLE_SCHOOL} SET name = %s, updated_on = %s WHERE id = %s",
             (name, _now(), row["id"])
         )
         conn.commit()
         return row["id"]
     else:
         cursor.execute(
-            "INSERT INTO students_school (code, name, created_on, updated_on) VALUES (%s, %s, %s, %s)",
+            f"INSERT INTO {TABLE_SCHOOL} (code, name, created_on, updated_on) VALUES (%s, %s, %s, %s)",
             (code, name, _now(), _now())
         )
         conn.commit()
@@ -248,11 +261,10 @@ def _upsert_school(conn, code: str, name: str) -> int:
 def _upsert_exam(conn, exam_year: str, grade: str, exam_type: str) -> int:
     """
     Find exam by unique (grade, exam_type, exam_year), or create it. Return its ID.
-    Table: students_exam (unique on grade, exam_type, exam_year)
     """
     cursor = conn.cursor(dictionary=True)
     cursor.execute(
-        "SELECT id FROM students_exam WHERE grade = %s AND exam_type = %s AND exam_year = %s",
+        f"SELECT id FROM {TABLE_EXAM} WHERE grade = %s AND exam_type = %s AND exam_year = %s",
         (grade, exam_type, exam_year)
     )
     row = cursor.fetchone()
@@ -260,8 +272,8 @@ def _upsert_exam(conn, exam_year: str, grade: str, exam_type: str) -> int:
         return row["id"]
     else:
         cursor.execute(
-            "INSERT INTO students_exam (grade, exam_type, exam_year, created_on, updated_on) "
-            "VALUES (%s, %s, %s, %s, %s)",
+            f"INSERT INTO {TABLE_EXAM} (grade, exam_type, exam_year, created_on, updated_on) "
+            f"VALUES (%s, %s, %s, %s, %s)",
             (grade, exam_type, exam_year, _now(), _now())
         )
         conn.commit()
@@ -271,16 +283,15 @@ def _upsert_exam(conn, exam_year: str, grade: str, exam_type: str) -> int:
 def _upsert_subject(conn, code: str) -> int:
     """
     Find subject by code (unique), or create it. Return its ID.
-    Table: students_subject (columns: code[unique])
     """
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id FROM students_subject WHERE code = %s", (code,))
+    cursor.execute(f"SELECT id FROM {TABLE_SUBJECT} WHERE code = %s", (code,))
     row = cursor.fetchone()
     if row:
         return row["id"]
     else:
         cursor.execute(
-            "INSERT INTO students_subject (code, created_on, updated_on) VALUES (%s, %s, %s)",
+            f"INSERT INTO {TABLE_SUBJECT} (code, created_on, updated_on) VALUES (%s, %s, %s)",
             (code, _now(), _now())
         )
         conn.commit()
@@ -291,28 +302,25 @@ def _upsert_student(conn, symbol_no: str, reg_no: str, name: str, dob: str,
                     sex: Optional[str] = None) -> int:
     """
     Find student by symbol_no+reg_no approximate match, or create. Return ID.
-    Table: students_student (columns: symbol_no, reg_no, name, sex, dob)
-    
-    Note: symbol_no is NOT unique, so we match on symbol_no + reg_no combo.
     """
     cursor = conn.cursor(dictionary=True)
     cursor.execute(
-        "SELECT id FROM students_student WHERE symbol_no = %s AND reg_no = %s",
+        f"SELECT id FROM {TABLE_STUDENT} WHERE symbol_no = %s AND reg_no = %s",
         (symbol_no, reg_no)
     )
     row = cursor.fetchone()
     if row:
         # Update details in case they changed
         cursor.execute(
-            "UPDATE students_student SET name = %s, dob = %s, sex = %s, updated_on = %s WHERE id = %s",
+            f"UPDATE {TABLE_STUDENT} SET name = %s, dob = %s, sex = %s, updated_on = %s WHERE id = %s",
             (name, dob, sex, _now(), row["id"])
         )
         conn.commit()
         return row["id"]
     else:
         cursor.execute(
-            "INSERT INTO students_student (symbol_no, reg_no, name, sex, dob, created_on, updated_on) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            f"INSERT INTO {TABLE_STUDENT} (symbol_no, reg_no, name, sex, dob, created_on, updated_on) "
+            f"VALUES (%s, %s, %s, %s, %s, %s, %s)",
             (symbol_no, reg_no, name, sex, dob, _now(), _now())
         )
         conn.commit()
@@ -427,6 +435,12 @@ def save_to_database(data: dict, image_path: str, meta: Optional[dict] = None):
     # Derive image_name from the file path
     image_name = os.path.splitext(os.path.basename(image_path))[0]
 
+    # Guard: if school_code is missing/placeholder, warn and use fallback
+    school_code_str = str(school_code).strip()
+    if not school_code_str or school_code_str in ("0", "0000", "?"):
+        print(f"⚠️  WARNING: school_code is '{school_code_str}' — using 'UNKNOWN' as fallback")
+        school_code = "UNKNOWN"
+
     print(f"\n{'='*60}")
     print(f"📄 School: {school_name} ({school_code})")
     print(f"📅 Year: {exam_year} | Grade: {grade} | Type: {exam_type}")
@@ -530,11 +544,11 @@ def _insert_result(conn, *, total: str, result: str, remarks: Optional[str],
                    exam_id: int, school_id: int, student_id: int,
                    is_legacy_image: bool = False) -> int:
     """
-    Insert a new row into students_result. Return the new ID.
+    Insert a new row into TABLE_RESULT. Return the new ID.
     """
     cursor = conn.cursor(dictionary=True)
     cursor.execute(
-        """INSERT INTO students_result
+        f"""INSERT INTO {TABLE_RESULT}
            (created_on, updated_on, total, result, remarks,
             book_name, image_name, file_path, qc_check, qc_remarks,
             cluster_id, ui, exam_id, school_id, student_id, is_legacy_image)
@@ -553,11 +567,11 @@ def _insert_result(conn, *, total: str, result: str, remarks: Optional[str],
 def _insert_mark(conn, *, theory: Optional[str], practical: Optional[str],
                  total: Optional[str], result_id: int, subject_id: int):
     """
-    Insert a new row into students_mark.
+    Insert a new row into TABLE_MARK.
     """
     cursor = conn.cursor(dictionary=True)
     cursor.execute(
-        """INSERT INTO students_mark
+        f"""INSERT INTO {TABLE_MARK}
            (created_on, updated_on, theory, practical, total, result_id, subject_id)
            VALUES (%s, %s, %s, %s, %s, %s, %s)""",
         (_now(), _now(), theory, practical, total, result_id, subject_id)
@@ -566,7 +580,54 @@ def _insert_mark(conn, *, theory: Optional[str], practical: Optional[str],
 
 
 # ─────────────────────────────────────────────
-# 5. CLI ENTRY POINT
+# 5. DEDUP / CHECKPOINT HELPERS
+# ─────────────────────────────────────────────
+
+def get_exam_id(conn, exam_year: str, grade: str, exam_type: str) -> Optional[int]:
+    """
+    Find an exam ID by (grade, exam_type, exam_year).
+    Returns None if no match.
+    """
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute(
+        f"SELECT id FROM {TABLE_EXAM} WHERE grade = %s AND exam_type = %s AND exam_year = %s",
+        (grade, exam_type, exam_year)
+    )
+    row = cursor.fetchone()
+    return row["id"] if row else None
+
+
+def is_student_already_in_db(conn, reg_no: str, exam_id: int) -> bool:
+    """
+    Check if a student's record already exists for the given exam.
+    Uses reg_no joined with students_result to find existing records.
+    """
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute(f"""
+        SELECT 1 FROM {TABLE_STUDENT} s
+        JOIN {TABLE_RESULT} r ON s.id = r.student_id
+        WHERE s.reg_no = %s AND r.exam_id = %s
+        LIMIT 1
+    """, (reg_no, exam_id))
+    return cursor.fetchone() is not None
+
+
+def count_db_records_for_folder(conn, folder_prefix: str) -> int:
+    """
+    Count how many students_result records exist for images in a given folder.
+    folder_prefix: e.g. 'D:/Neb_Ocr_Final/scanned_images/2069/2069 XII Regular/'
+    """
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute(
+        f"SELECT COUNT(*) as cnt FROM {TABLE_RESULT} WHERE file_path LIKE %s",
+        (f"{folder_prefix}%",)
+    )
+    row = cursor.fetchone()
+    return row["cnt"] if row else 0
+
+
+# ─────────────────────────────────────────────
+# 6. CLI ENTRY POINT
 # ─────────────────────────────────────────────
 
 def main():

@@ -9,8 +9,13 @@ import datetime
 import threading
 import time
 from wia_scan import get_device_manager, connect_to_device_by_uid, scan_side
-from neb_utils.utils import get_next_filename, save_image_smart, to_roman
+from neb_utils.utils import (
+    get_next_filename, save_image_smart, to_roman,
+    build_image_filename,
+    load_checkpoint, save_checkpoint, delete_checkpoint,
+)
 from neb_utils.vlm_front import get_vlm_result, save_vlm_to_database
+from neb_utils.ollama_pipeline import _get_db, get_exam_id, is_student_already_in_db
 import pythoncom
 from dotenv import load_dotenv
 load_dotenv()
@@ -51,6 +56,17 @@ class RadiantUltraScanner(ctk.CTk):
         self.image_history = []
         self.current_ocr_data = None
         self.current_vlm_raw = None
+        self.is_batch_mode = False
+        self.batch_files = []
+        self.batch_index = 0
+        self.batch_total = 0
+        self.batch_success = 0
+        self.batch_fail = 0
+        self.auto_commit = ctk.BooleanVar(value=False)
+        self.batch_abort = False
+        self.batch_folder = None
+        self.batch_file_map = {}
+        self.batch_completed_originals = set()
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -158,7 +174,28 @@ class RadiantUltraScanner(ctk.CTk):
         self.scan_btn.pack(side="bottom", fill="x", padx=30, pady=(10, 20))
 
         self.import_btn = ctk.CTkButton(self.sidebar, text="IMPORT FROM DISK", command=self.select_file, height=45, corner_radius=12, fg_color="transparent", border_width=1, border_color=COLORS["border"])
-        self.import_btn.pack(side="bottom", fill="x", padx=30, pady=0)
+        self.import_btn.pack(side="bottom", fill="x", padx=30, pady=(0, 5))
+
+        self.import_folder_btn = ctk.CTkButton(
+            self.sidebar, text="📁 IMPORT FOLDER", command=self.select_folder,
+            height=45, corner_radius=12, fg_color="transparent",
+            border_width=1, border_color=COLORS["border"],
+            font=("Inter", 13, "bold")
+        )
+        self.import_folder_btn.pack(side="bottom", fill="x", padx=30, pady=(0, 5))
+
+        # Auto-commit checkbox row
+        self.auto_commit_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.auto_commit_frame.pack(side="bottom", fill="x", padx=35, pady=(0, 5))
+
+        self.auto_commit_cb = ctk.CTkCheckBox(
+            self.auto_commit_frame, text="Auto-commit to DB",
+            variable=self.auto_commit, command=self._toggle_auto_commit,
+            font=("Inter", 12, "bold"), text_color=COLORS["text_dim"],
+            fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"],
+            checkmark_color="white", border_color=COLORS["border"]
+        )
+        self.auto_commit_cb.pack(side="left")
 
         # Time Widget
         self.stats_box = ctk.CTkFrame(self.sidebar, fg_color="#1E293B", corner_radius=15, height=60)
@@ -322,26 +359,24 @@ class RadiantUltraScanner(ctk.CTk):
         else:
             messagebox.showwarning("System", "Input buffer empty. Please scan a document first.")
 
-    def ocr_thread_logic(self):
+    def ocr_thread_logic(self, img_path=None):
+        target = img_path or self.selected_file
         try:
-            data_dict, summary_text = get_vlm_result(
-                self.selected_file
-            )
+            data_dict, summary_text = get_vlm_result(target)
 
-            self.after(0, lambda: self.finalize_ocr_button(data_dict))
+            self.after(0, lambda: self.finalize_ocr_button(data_dict, img_path=target))
             self.after(0, lambda: self.log_message(summary_text))
-            self.after(0, lambda: self.log_message("VLM OCR Sync: [EXTRACTION_COMPLETE]"))
 
         except Exception as e:
-            err = f"VLM OCR Error: {str(e)}"
+            err = f"VLM OCR Error on {os.path.basename(target)}: {str(e)}"
             self.after(0, lambda: self.log_message(err))
-            self.after(0, lambda: self.finalize_ocr_button(error=True))
+            self.after(0, lambda: self.finalize_ocr_button(error=True, img_path=target))
 
-    def finalize_ocr_button(self, results=None, error=None):
-        if hasattr(self, 'btn_loader'):
+    def finalize_ocr_button(self, results=None, error=None, img_path=None):
+        if hasattr(self, 'btn_loader') and self.btn_loader.winfo_exists():
             self.btn_loader.stop()
             self.btn_loader.destroy()
-        self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
+
         if results:
             self.current_vlm_raw = results
             self.current_ocr_data = results.get("students", [])
@@ -349,10 +384,310 @@ class RadiantUltraScanner(ctk.CTk):
             # --- Auto-update UI inputs from VLM extraction ---
             self._sync_ui_from_vlm(results)
 
-            self.db_save_btn.configure(state="normal", fg_color=COLORS["success"])
-            self.log_message("System: Records verified. Ready for Database Commit.")
+            student_count = len(self.current_ocr_data)
+            img_name = os.path.basename(img_path) if img_path else self.selected_file
+            img_name = os.path.basename(img_name) if img_name else "?"
+
+            self.log_message(f"✅ {img_name}: {student_count} students extracted.")
+
+            # --- Auto-commit if checkbox is checked ---
+            if self.auto_commit.get():
+                self.log_message("⏳ Auto-committing to database...")
+                img_target = img_path or self.selected_file
+                threading.Thread(target=self._auto_save_to_db, args=(img_target,), daemon=True).start()
+            else:
+                self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
+                self.db_save_btn.configure(state="normal", fg_color=COLORS["success"])
+                self.log_message("System: Records verified. Ready for Database Commit.")
+
         if error:
+            self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
             self.log_message(f"VLM OCR Error: {error}")
+
+    def _toggle_auto_commit(self):
+        """Enable/disable DB save button based on auto-commit checkbox."""
+        if self.auto_commit.get():
+            self.db_save_btn.configure(state="disabled", fg_color=COLORS["border"],
+                                        text="📥 AUTO-COMMIT ON")
+        else:
+            if self.current_ocr_data:
+                self.db_save_btn.configure(state="normal", fg_color=COLORS["success"],
+                                            text="📥 COMMIT TO DATABASE")
+            else:
+                self.db_save_btn.configure(state="disabled", fg_color=COLORS["border"],
+                                            text="📥 COMMIT TO DATABASE")
+
+    def _auto_save_to_db(self, img_path: str):
+        """Save OCR result to DB without confirmation dialog (used in auto-commit mode)."""
+        if not self.current_vlm_raw:
+            return
+
+        meta = {
+            "grade": self.grade_btn.get(),
+            "exam_type": self.exam_btn.get(),
+            "exam_year": self.year_box.get(),
+            "book_name": None,
+            "qc_check": "0",
+            "qc_remarks": None,
+            "cluster_id": None,
+            "ui": "True",
+            "remarks": None,
+            "is_legacy_image": False,
+        }
+
+        try:
+            save_vlm_to_database(self.current_vlm_raw, img_path, meta=meta)
+            student_count = len(self.current_ocr_data)
+            self.log_message(f"💾 Auto-committed {student_count} records to DB.")
+        except Exception as e:
+            self.log_message(f"❌ Auto-commit failed: {e}")
+
+        if not self.is_batch_mode:
+            self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE",
+                                        fg_color=COLORS["success"])
+
+    def select_folder(self):
+        """Open folder dialog and start batch OCR processing with resume support."""
+        folder_path = filedialog.askdirectory(title="Select Folder with Mark Sheet Images")
+        if not folder_path:
+            return
+
+        folder_abs = os.path.abspath(folder_path)
+
+        # Gather all image files, sorted
+        valid_exts = {".jpg", ".jpeg", ".png", ".bmp"}
+        all_files = []
+        for fname in sorted(os.listdir(folder_abs)):
+            ext = os.path.splitext(fname)[1].lower()
+            if ext in valid_exts:
+                all_files.append(fname)
+
+        if not all_files:
+            messagebox.showwarning("Empty Folder", "No image files found in the selected folder.")
+            return
+
+        # --- Check for existing checkpoint (resume support) ---
+        checkpoint = load_checkpoint()
+        resume_remaining = None
+        completed_originals = set()
+        file_map = {}
+
+        if checkpoint and checkpoint.get("source_folder") == folder_abs:
+            resume_remaining = checkpoint.get("remaining", [])
+            completed_originals = set(checkpoint.get("completed", []))
+            file_map = checkpoint.get("file_map", {})
+
+            done_count = len(completed_originals)
+            total = checkpoint.get("total", len(all_files))
+            if resume_remaining:
+                answer = messagebox.askyesno(
+                    "Resume Batch",
+                    f"Found existing checkpoint for this folder.\n"
+                    f"{done_count} of {total} images already completed.\n\n"
+                    f"Resume processing the remaining {len(resume_remaining)}?",
+                    icon="question"
+                )
+                if not answer:
+                    delete_checkpoint()
+                    resume_remaining = None
+                    completed_originals = set()
+                    file_map = {}
+
+        # Build the work queue
+        if resume_remaining is not None:
+            # Resume mode: use remaining list from checkpoint
+            work_queue = list(resume_remaining)
+            skip_count = len(completed_originals)
+        else:
+            # Fresh start: process All files
+            work_queue = list(all_files)
+            completed_originals = set()
+            file_map = {}
+            skip_count = 0
+
+        if not work_queue:
+            messagebox.showinfo("All Done", "All images in this folder have already been processed!")
+            return
+
+        self.batch_files = work_queue
+        self.batch_total = len(all_files)
+        self.batch_index = 0
+        self.batch_success = skip_count
+        self.batch_fail = 0
+        self.batch_abort = False
+        self.is_batch_mode = True
+        self.batch_folder = folder_abs
+        self.batch_file_map = file_map
+        self.batch_completed_originals = completed_originals
+
+        self.log_message(f"\n{'='*60}")
+        self.log_message(f"📂 BATCH MODE: '{os.path.basename(folder_abs)}'")
+        self.log_message(f"   Total in folder: {self.batch_total}  |  Already completed: {skip_count}  |  Queue: {len(work_queue)}")
+        self.log_message(f"{'='*60}")
+
+        # Disable UI during batch
+        self.import_btn.configure(state="disabled")
+        self.import_folder_btn.configure(state="disabled", text="⏳ PROCESSING...")
+        self.proceed_btn.configure(state="disabled", text="BATCH ACTIVE")
+        self.scan_btn.configure(state="disabled")
+
+        threading.Thread(target=self.process_folder_thread, daemon=True).start()
+
+    def process_folder_thread(self):
+        """Process all images in batch mode sequentially with checkpoint updates."""
+        while self.batch_index < len(self.batch_files) and not self.batch_abort:
+            orig_filename = self.batch_files[self.batch_index]
+            self.batch_index += 1
+
+            # Build source path
+            img_path = os.path.join(self.batch_folder, orig_filename)
+
+            idx = self.batch_index
+            total = self.batch_total
+
+            try:
+                # Copy image to save folder
+                selected_year = self.year_box.get()
+                selected_exam = self.exam_btn.get()
+                selected_grade = self.grade_btn.get()
+                roman_grade = to_roman(selected_grade)
+                year_folder = os.path.join(BASE_SAVE_PATH, selected_year)
+                exam_folder = os.path.join(year_folder, f"{selected_year} {roman_grade} {selected_exam}")
+                os.makedirs(exam_folder, exist_ok=True)
+                saved_path = save_image_smart(img_path, exam_folder)
+
+                # Update preview
+                self.after(0, lambda p=saved_path: self._set_preview(p))
+                self.after(0, lambda i=idx, t=total, f=orig_filename:
+                    self.log_message(f"\n[{i}/{t}] Processing: {f}"))
+
+                # Run OCR
+                data_dict, _ = get_vlm_result(saved_path)
+
+                # --- Rename image to meaningful name ---
+                new_name = build_image_filename(data_dict)
+                renamed_path = os.path.join(exam_folder, new_name)
+                if os.path.normpath(saved_path) != os.path.normpath(renamed_path):
+                    # Remove existing file with same name if any
+                    if os.path.exists(renamed_path):
+                        os.remove(renamed_path)
+                    os.rename(saved_path, renamed_path)
+                else:
+                    renamed_path = saved_path
+
+                # Track file mapping for checkpoint
+                self.batch_file_map[orig_filename] = new_name
+
+                self.current_vlm_raw = data_dict
+                self.current_ocr_data = data_dict.get("students", [])
+                student_count = len(self.current_ocr_data)
+
+                # --- Dedup check: skip students already in DB ---
+                saved_count = 0
+                skipped_count = 0
+
+                # Batch mode always saves to DB
+                meta = {
+                    "grade": self.grade_btn.get(),
+                    "exam_type": self.exam_btn.get(),
+                    "exam_year": self.year_box.get(),
+                    "book_name": None,
+                    "qc_check": "0",
+                    "qc_remarks": None,
+                    "cluster_id": None,
+                    "ui": "True",
+                    "remarks": None,
+                    "is_legacy_image": False,
+                }
+
+                try:
+                    conn = _get_db()
+                    exam_id = get_exam_id(conn, meta["exam_year"], meta["grade"], meta["exam_type"])
+
+                    if exam_id:
+                        # Check each student — skip if already in DB
+                        new_students = []
+                        for s in data_dict.get("students", []):
+                            reg = s.get("registration_number", "") if isinstance(s, dict) else s.registration_number
+                            if is_student_already_in_db(conn, reg, exam_id):
+                                skipped_count += 1
+                            else:
+                                new_students.append(s)
+
+                        conn.close()
+
+                        if new_students:
+                            # Save only new students
+                            filtered_data = dict(data_dict)
+                            filtered_data["students"] = new_students
+                            save_vlm_to_database(filtered_data, renamed_path, meta=meta)
+                            saved_count = len(new_students)
+                    else:
+                        conn.close()
+                        save_vlm_to_database(data_dict, renamed_path, meta=meta)
+                        saved_count = student_count
+
+                except Exception as db_err:
+                    self.after(0, lambda e=db_err: self.log_message(f"⚠️ DB check failed (saving anyway): {e}"))
+                    save_vlm_to_database(data_dict, renamed_path, meta=meta)
+                    saved_count = student_count
+
+                log_msg = f"💾 [{idx}/{total}] {new_name}: {saved_count} saved"
+                if skipped_count:
+                    log_msg += f", {skipped_count} already in DB (skipped)"
+                self.after(0, lambda m=log_msg: self.log_message(m))
+
+                # --- Update checkpoint ---
+                self.batch_completed_originals.add(orig_filename)
+                remaining = [f for f in self.batch_files if f not in self.batch_completed_originals]
+                self.after(0, lambda sf=self.batch_folder, tt=self.batch_total,
+                           fm=self.batch_file_map, co=self.batch_completed_originals, rem=remaining:
+                    save_checkpoint(sf, tt, dict(fm), list(co), rem))
+
+                self.batch_success += 1
+
+            except Exception as e:
+                self.batch_fail += 1
+                self.after(0, lambda i=idx, t=total, f=orig_filename, err=str(e):
+                    self.log_message(f"❌ [{i}/{t}] {f} FAILED: {err}"))
+
+        # Batch complete — clean up UI
+        self.after(0, self._finish_batch)
+
+    def _finish_batch(self):
+        """Re-enable UI after batch processing completes and clean up checkpoint."""
+        self.is_batch_mode = False
+        self.import_btn.configure(state="normal")
+        self.import_folder_btn.configure(state="normal", text="📁 IMPORT FOLDER")
+        self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
+        self.scan_btn.configure(state="normal")
+
+        total = self.batch_total
+        success = self.batch_success
+        fail = self.batch_fail
+
+        # Delete checkpoint ONLY if all succeeded (no remaining failures)
+        if fail == 0 and success >= total:
+            delete_checkpoint()
+            self.log_message("🗑️ Checkpoint cleared — batch fully complete.")
+        else:
+            self.log_message("📝 Checkpoint preserved — resume available on restart.")
+
+        self.log_message(f"\n{'='*60}")
+        self.log_message(f"📊 BATCH RESULT: {success}/{total} succeeded")
+        if fail > 0:
+            self.log_message(f"   ❌ {fail} failed")
+        self.log_message(f"{'='*60}")
+
+        self.log_message("System: Batch processing finished.")
+
+    def _set_preview(self, img_path: str):
+        """Update the preview display with a specific image (thread-safe)."""
+        self.selected_file = img_path
+        if img_path and os.path.exists(img_path):
+            self.rotation = 0
+            self.zoom_level = 1.0
+            self.display_image()
 
     def _sync_ui_from_vlm(self, data: dict):
         """Sync the sidebar input widgets with values extracted by the VLM."""
