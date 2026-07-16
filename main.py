@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from PIL import Image
@@ -70,14 +73,18 @@ class RadiantUltraScanner(ctk.CTk):
                 info = manager.DeviceInfos(i)
                 device_names.append(info.Properties("Name").Value)
                 self.uids.append(info.DeviceID)
-            
+
             if device_names:
                 self.scanner_menu.configure(values=device_names)
                 self.scanner_menu.set(device_names[0])
+                self.log_message(f"🔍 Scanner detected: {device_names[0]}")
             else:
                 self.scanner_menu.configure(values=["No Scanner Detected"])
+                self.log_message("ℹ️ No WIA scanner device found. Use 'IMPORT FROM DISK' to load an image.")
         except Exception as e:
-            self.log_message(f"Hardware Error: {str(e)}")
+            self.scanner_menu.configure(values=["No Scanner Detected"])
+            self.scanner_menu.set("No Scanner Detected")
+            self.log_message(f"ℹ️ No scanner hardware available. Use 'IMPORT FROM DISK' to load an image.")
 
     def setup_sidebar(self):
         self.sidebar = ctk.CTkFrame(self, width=320, corner_radius=0, fg_color=COLORS["sidebar"], border_width=2, border_color=COLORS["border"])
@@ -127,7 +134,7 @@ class RadiantUltraScanner(ctk.CTk):
 
         # Preserved Section Headers
         self.add_section_header("HARDWARE SOURCE")
-        self.scanner_menu = ctk.CTkOptionMenu(self.ctrl_box, values=["Virtual Engine v5", "WIA Direct-Link"], fg_color="#1E293B", button_color=COLORS["accent"], button_hover_color=COLORS["accent_hover"])
+        self.scanner_menu = ctk.CTkOptionMenu(self.ctrl_box, values=["No Scanner Detected"], fg_color="#1E293B", button_color=COLORS["accent"], button_hover_color=COLORS["accent_hover"])
         self.scanner_menu.pack(fill="x", pady=(0, 20))
 
         self.add_section_header("ACADEMIC YEAR (BS)")
