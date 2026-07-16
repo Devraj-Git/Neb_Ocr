@@ -75,8 +75,64 @@ def _draw_save_icon(draw, size, color):
     draw.ellipse([m, m + h - h//3, m+w, m + h], outline=c, width=1)
 
 
+def _draw_folder_icon(draw, size, color):
+    """Draw a small folder icon."""
+    c = color
+    m = 3
+    w, h = size - 2*m, size - 2*m
+    # Folder tab
+    draw.polygon([m + 2, m, m + w//3, m, m + w//3 + 2, m + 3, m + w - 2, m + 3],
+                 outline=c, width=1)
+    # Folder body
+    draw.rectangle([m, m + 3, m + w - 2, m + h - 2], outline=c, width=1)
+
+
 OCR_ICON = _make_icon(_draw_scan_icon, 20, "white")
 DB_ICON = _make_icon(_draw_save_icon, 20, "white")
+def _draw_image_icon(draw, size, color):
+    """Draw a small image/picture icon (landscape with mountain)."""
+    c = color
+    m = 3
+    w, h = size - 2*m, size - 2*m
+    # Frame (landscape rectangle)
+    draw.rectangle([m, m + 2, m + w, m + h - 2], outline=c, width=1)
+    # Sun (small circle top-right)
+    cx_sun = m + int(w * 0.75)
+    cy_sun = m + 6
+    draw.ellipse([cx_sun - 2, cy_sun - 2, cx_sun + 2, cy_sun + 2], outline=c, width=1)
+    # Mountain (triangle)
+    draw.polygon([
+        m + 2, m + h - 2,
+        m + w // 2 - 2, m + 6,
+        m + w - 2, m + h - 2,
+    ], outline=c, width=1)
+    # Base line (ground)
+    draw.line([m, m + h - 2, m + w, m + h - 2], fill=c, width=1)
+
+
+def _draw_globe_icon(draw, size, color):
+    """Draw a small globe icon (circle with latitude/longitude lines)."""
+    c = color
+    m = 3
+    w, h = size - 2*m, size - 2*m
+    cx = size // 2
+    # Outer circle
+    draw.ellipse([m, m, m+w, m+h], outline=c, width=1)
+    # Vertical longitude line
+    draw.line([cx, m, cx, m+h], fill=c, width=1)
+    # Horizontal latitude lines
+    lat_y1 = m + h // 3
+    lat_y2 = m + 2 * h // 3
+    draw.line([m, lat_y1, m+w, lat_y1], fill=c, width=1)
+    draw.line([m, lat_y2, m+w, lat_y2], fill=c, width=1)
+    # Diagonal curve (continent suggestion)
+    draw.arc([m + w//4, m + h//4, m + 3*w//4, m + 3*h//4],
+              start=-45, end=90, fill=c, width=1)
+
+
+IMAGE_ICON = _make_icon(_draw_image_icon, 18, "#94A3B8")
+FOLDER_ICON = _make_icon(_draw_folder_icon, 18, "#94A3B8")
+GLOBE_ICON = _make_icon(_draw_globe_icon, 16, "#94A3B8")
 
 ctk.set_appearance_mode("Dark")
 
@@ -153,35 +209,36 @@ class RadiantUltraScanner(ctk.CTk):
 
         # ── Header indicator ──
         if s == "CONNECTED":
-            text = "🌐 REMOTE: ● ONLINE"
+            text = "REMOTE: ● ONLINE"
             color = COLORS["success"]
             bg = "#14532D"
         elif s == "DISCONNECTED":
-            text = "🌐 REMOTE: ○ OFFLINE"
+            text = "REMOTE: ○ OFFLINE"
             color = COLORS["danger"]
             bg = "#7F1D1D"
         elif s == "DISABLED":
-            text = "🌐 REMOTE: ○ DISABLED"
+            text = "REMOTE: ○ DISABLED"
             color = COLORS["text_dim"]
             bg = COLORS["sidebar"]
         elif s == "AUTH_ERROR":
-            text = "🌐 REMOTE: ● AUTH FAIL"
+            text = "REMOTE: ● AUTH FAIL"
             color = COLORS["danger"]
             bg = "#7F1D1D"
         elif s == "ERROR":
-            text = "🌐 REMOTE: ● ERROR"
+            text = "REMOTE: ● ERROR"
             color = COLORS["danger"]
             bg = "#7F1D1D"
         elif s.startswith("PROCESSING"):
-            text = f"🌐 REMOTE: ⏳ {s}"
+            text = f"REMOTE: ⏳ {s}"
             color = COLORS["accent"]
             bg = "#0C4A6E"
         else:
-            text = f"🌐 REMOTE: {s}"
+            text = f"REMOTE: {s}"
             color = COLORS["text_dim"]
             bg = COLORS["sidebar"]
 
-        self.webhook_status_lbl.configure(text=text, text_color=color, fg_color=bg)
+        self.webhook_status_lbl.configure(text=text, text_color=color, fg_color=bg,
+                                           image=GLOBE_ICON, compound="left")
 
         # ── Info frame labels ──
         if hasattr(self, 'webhook_url_lbl'):
@@ -264,12 +321,14 @@ class RadiantUltraScanner(ctk.CTk):
         # ── Webhook Connection Status ──
         self.webhook_status_lbl = ctk.CTkLabel(
             self.brand_frame,
-            text="🌐 REMOTE: ⏳",
+            text="REMOTE: ⏳",
+            image=GLOBE_ICON,
+            compound="left",
             font=("Inter", 9, "bold"),
             text_color=COLORS["text_dim"],
             fg_color="#1E293B",
             corner_radius=20,
-            width=140,
+            width=160,
             height=20
         )
         self.webhook_status_lbl.pack(pady=(0, 10))
@@ -277,41 +336,60 @@ class RadiantUltraScanner(ctk.CTk):
         self.ctrl_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         self.ctrl_box.pack(fill="both", expand=True, padx=30)
 
-        # Preserved Section Headers
+        # ── Hardware Source ──
         self.add_section_header("HARDWARE SOURCE")
         self.scanner_menu = ctk.CTkOptionMenu(self.ctrl_box, values=["No Scanner Detected"], fg_color="#1E293B", button_color=COLORS["accent"], button_hover_color=COLORS["accent_hover"])
-        self.scanner_menu.pack(fill="x", pady=(0, 20))
+        self.scanner_menu.pack(fill="x", pady=(0, 6))
 
         self.add_section_header("ACADEMIC YEAR (BS)")
         current_bs = datetime.datetime.now().year + 57
         years = [str(y) for y in range(current_bs, current_bs - 15, -1)]
         self.year_box = ctk.CTkComboBox(self.ctrl_box, values=years, border_color=COLORS["border"], fg_color="#1E293B")
-        self.year_box.pack(fill="x", pady=(0, 20))
+        self.year_box.pack(fill="x", pady=(0, 6))
 
         self.add_section_header("EXAMINATION TYPE")
         self.exam_btn = ctk.CTkSegmentedButton(self.ctrl_box, values=["Regular", "Partial", "Supplementary"], selected_color=COLORS["accent"])
-        self.exam_btn.pack(fill="x", pady=(0, 20))
+        self.exam_btn.pack(fill="x", pady=(0, 6))
         self.exam_btn.set("Regular")
 
         self.add_section_header("GRADE")
         self.grade_btn = ctk.CTkSegmentedButton(self.ctrl_box, values=["11", "12"], selected_color=COLORS["accent"])
-        self.grade_btn.pack(fill="x", pady=(0, 20))
+        self.grade_btn.pack(fill="x", pady=(0, 6))
         self.grade_btn.set("11")
 
-        # Action Buttons
+        # Action Buttons (packed first → bottommost)
         self.scan_btn = ctk.CTkButton(self.sidebar, text="START SCAN", command=self.run_hardware_scan, height=55, corner_radius=12, fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], font=("Inter", 14, "bold"))
         self.scan_btn.pack(side="bottom", fill="x", padx=30, pady=(10, 20))
 
-        self.import_btn = ctk.CTkButton(self.sidebar, text="IMPORT FROM DISK", command=self.select_file, height=45, corner_radius=12, fg_color="transparent", border_width=1, border_color=COLORS["border"])
-        self.import_btn.pack(side="bottom", fill="x", padx=30, pady=(0, 5))
+        # ── Import row: IMAGE + FOLDER side by side (above START SCAN) ──
+        self.import_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.import_row.pack(side="bottom", fill="x", padx=30, pady=(0, 5))
+
+        self.import_btn = ctk.CTkButton(
+            self.import_row, text="IMAGE",
+            image=IMAGE_ICON, compound="left",
+            command=self.select_file, height=40, corner_radius=10,
+            fg_color="transparent", border_width=1, border_color=COLORS["border"],
+            font=("Inter", 11, "bold")
+        )
+        self.import_btn.pack(side="left", fill="x", expand=True, padx=(0, 3))
 
         self.import_folder_btn = ctk.CTkButton(
-            self.sidebar, text="📁 IMPORT FOLDER", command=self.select_folder,
-            height=45, corner_radius=12, fg_color="transparent",
+            self.import_row, text="FOLDER",
+            image=FOLDER_ICON, compound="left",
+            command=self.select_folder,
+            height=40, corner_radius=10, fg_color="transparent",
             border_width=1, border_color=COLORS["border"],
-            font=("Inter", 13, "bold")
+            font=("Inter", 11, "bold")
         )
-        self.import_folder_btn.pack(side="bottom", fill="x", padx=30, pady=(0, 5))
+        self.import_folder_btn.pack(side="right", fill="x", expand=True, padx=(3, 0))
+
+        # ── IMPORT IMAGE label (above the row) ──
+        self.import_lbl = ctk.CTkLabel(
+            self.sidebar, text="SELECT FOR IMPORT",
+            font=("Inter", 9, "bold"), text_color=COLORS["text_dim"], anchor="w"
+        )
+        self.import_lbl.pack(side="bottom", fill="x", padx=30, pady=(0, 3))
 
         # ── Webhook Configuration Info ──
         self.webhook_info_frame = ctk.CTkFrame(
@@ -357,8 +435,8 @@ class RadiantUltraScanner(ctk.CTk):
         self.time_lbl.place(relx=0.5, rely=0.5, anchor="center")
 
     def add_section_header(self, text):
-        lbl = ctk.CTkLabel(self.ctrl_box, text=text, font=("Inter", 10, "bold"), text_color=COLORS["text_dim"], anchor="w")
-        lbl.pack(fill="x", pady=(10, 5))
+        lbl = ctk.CTkLabel(self.ctrl_box, text=text, font=("Inter", 9, "bold"), text_color=COLORS["text_dim"], anchor="w")
+        lbl.pack(fill="x", pady=(6, 3))
 
     def setup_main_view(self):
         self.main_view = ctk.CTkFrame(self, fg_color="transparent")
@@ -703,7 +781,7 @@ class RadiantUltraScanner(ctk.CTk):
 
         # Disable UI during batch
         self.import_btn.configure(state="disabled")
-        self.import_folder_btn.configure(state="disabled", text="⏳ PROCESSING...")
+        self.import_folder_btn.configure(state="disabled", text="PROCESSING...", image=None)
         self.proceed_btn.configure(state="disabled", text="BATCH ACTIVE")
         self.scan_btn.configure(state="disabled")
 
@@ -863,7 +941,7 @@ class RadiantUltraScanner(ctk.CTk):
         """Re-enable UI after batch processing completes and clean up checkpoint."""
         self.is_batch_mode = False
         self.import_btn.configure(state="normal")
-        self.import_folder_btn.configure(state="normal", text="📁 IMPORT FOLDER")
+        self.import_folder_btn.configure(state="normal", text="FOLDER", image=FOLDER_ICON)
         self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
         self.scan_btn.configure(state="normal")
 
