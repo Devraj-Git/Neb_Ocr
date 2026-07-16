@@ -16,6 +16,7 @@ from neb_utils.utils import (
 )
 from neb_utils.vlm_front import get_vlm_result, save_vlm_to_database
 from neb_utils.ollama_pipeline import _get_db, get_exam_id, is_student_already_in_db
+from neb_utils.webhook_client import WebhookClient
 import pythoncom
 from dotenv import load_dotenv
 load_dotenv()
@@ -71,6 +72,10 @@ class RadiantUltraScanner(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+        # ── Webhook client reference (initialized after sidebar) ──
+        self.webhook_client: WebhookClient = None
+        self._webhook_status = "DISABLED"
+
         self.setup_sidebar()
         self.setup_main_view()
         self.setup_loading_overlay()
@@ -78,7 +83,77 @@ class RadiantUltraScanner(ctk.CTk):
         
         # FINAL UPGRADE: Professional Initial Log
         self.load_hardware_devices()
-        self.log_message("OCR Engine v5.7 initialized. Secure Image Buffer: READY.")
+
+        # ── Start webhook polling client ──
+        self._init_webhook_client()
+
+    # ── Webhook Client ──────────────────────────────────────────
+
+    def _init_webhook_client(self):
+        """Initialize and start the webhook polling client."""
+        self.webhook_client = WebhookClient(
+            status_callback=self._on_webhook_status,
+            log_callback=self._on_webhook_log,
+        )
+        self.webhook_client.start()
+
+    def _on_webhook_status(self, status: str):
+        """Update the webhook status indicator in the sidebar (thread-safe)."""
+        self._webhook_status = status
+        self.after(0, self._refresh_webhook_ui)
+
+    def _on_webhook_log(self, msg: str):
+        """Forward webhook log messages to the console (thread-safe)."""
+        self.after(0, lambda m=msg: self.log_message(m))
+
+    def _refresh_webhook_ui(self):
+        """Refresh the webhook status UI elements based on current state."""
+        s = self._webhook_status
+
+        # ── Header indicator ──
+        if s == "CONNECTED":
+            text = "🌐 REMOTE: ● ONLINE"
+            color = COLORS["success"]
+            bg = "#14532D"
+        elif s == "DISCONNECTED":
+            text = "🌐 REMOTE: ○ OFFLINE"
+            color = COLORS["danger"]
+            bg = "#7F1D1D"
+        elif s == "DISABLED":
+            text = "🌐 REMOTE: ○ DISABLED"
+            color = COLORS["text_dim"]
+            bg = COLORS["sidebar"]
+        elif s == "AUTH_ERROR":
+            text = "🌐 REMOTE: ● AUTH FAIL"
+            color = COLORS["danger"]
+            bg = "#7F1D1D"
+        elif s == "ERROR":
+            text = "🌐 REMOTE: ● ERROR"
+            color = COLORS["danger"]
+            bg = "#7F1D1D"
+        elif s.startswith("PROCESSING"):
+            text = f"🌐 REMOTE: ⏳ {s}"
+            color = COLORS["accent"]
+            bg = "#0C4A6E"
+        else:
+            text = f"🌐 REMOTE: {s}"
+            color = COLORS["text_dim"]
+            bg = COLORS["sidebar"]
+
+        self.webhook_status_lbl.configure(text=text, text_color=color, fg_color=bg)
+
+        # ── Info frame labels ──
+        if hasattr(self, 'webhook_url_lbl'):
+            from neb_utils.webhook_client import API_BASE_URL, API_CLIENT_ID
+            self.webhook_url_lbl.configure(
+                text=f"Server: {API_BASE_URL or 'not set'}"
+            )
+            self.webhook_client_id_lbl.configure(
+                text=f"Client: {API_CLIENT_ID or 'default'}"
+            )
+            self.webhook_interval_lbl.configure(
+                text=f"Transport: SSE"
+            )
 
     def load_hardware_devices(self):
         try:
@@ -143,7 +218,20 @@ class RadiantUltraScanner(ctk.CTk):
         self.logo.pack(side="left")
         
         self.status_pill = ctk.CTkLabel(self.brand_frame, text="● SYSTEM ONLINE", font=("Inter", 10, "bold"), text_color=COLORS["success"], fg_color="#14532D", corner_radius=20, width=120, height=24)
-        self.status_pill.pack(pady=10)
+        self.status_pill.pack(pady=(10, 2))
+
+        # ── Webhook Connection Status ──
+        self.webhook_status_lbl = ctk.CTkLabel(
+            self.brand_frame,
+            text="🌐 REMOTE: ⏳",
+            font=("Inter", 9, "bold"),
+            text_color=COLORS["text_dim"],
+            fg_color="#1E293B",
+            corner_radius=20,
+            width=140,
+            height=20
+        )
+        self.webhook_status_lbl.pack(pady=(0, 10))
 
         self.ctrl_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         self.ctrl_box.pack(fill="both", expand=True, padx=30)
@@ -197,9 +285,46 @@ class RadiantUltraScanner(ctk.CTk):
         )
         self.auto_commit_cb.pack(side="left")
 
+        # ── Webhook Configuration Info ──
+        self.webhook_info_frame = ctk.CTkFrame(
+            self.sidebar, fg_color="#1E293B", corner_radius=10, height=70
+        )
+        self.webhook_info_frame.pack(side="bottom", fill="x", padx=20, pady=(0, 5))
+        self.webhook_info_frame.pack_propagate(False)
+
+        # Server URL
+        self.webhook_url_lbl = ctk.CTkLabel(
+            self.webhook_info_frame,
+            text="Server: connecting...",
+            font=("JetBrains Mono", 9),
+            text_color=COLORS["text_dim"],
+            anchor="w"
+        )
+        self.webhook_url_lbl.pack(fill="x", padx=12, pady=(8, 0))
+
+        # Client ID + Poll interval row
+        info_row = ctk.CTkFrame(self.webhook_info_frame, fg_color="transparent")
+        info_row.pack(fill="x", padx=12, pady=(0, 6))
+
+        self.webhook_client_id_lbl = ctk.CTkLabel(
+            info_row,
+            text="Client: ...",
+            font=("JetBrains Mono", 9),
+            text_color=COLORS["text_dim"]
+        )
+        self.webhook_client_id_lbl.pack(side="left")
+
+        self.webhook_interval_lbl = ctk.CTkLabel(
+            info_row,
+            text="Poll: ...",
+            font=("JetBrains Mono", 9),
+            text_color=COLORS["text_dim"]
+        )
+        self.webhook_interval_lbl.pack(side="right")
+
         # Time Widget
         self.stats_box = ctk.CTkFrame(self.sidebar, fg_color="#1E293B", corner_radius=15, height=60)
-        self.stats_box.pack(side="bottom", fill="x", padx=20, pady=20)
+        self.stats_box.pack(side="bottom", fill="x", padx=20, pady=(5, 20))
         self.time_lbl = ctk.CTkLabel(self.stats_box, text="00:00:00", font=("JetBrains Mono", 16, "bold"), text_color=COLORS["text_main"])
         self.time_lbl.place(relx=0.5, rely=0.5, anchor="center")
 
