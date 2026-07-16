@@ -3,8 +3,8 @@
   "school_name": "BHANU BHAKTA MEMORIAL H S SCHOOL, PANIPOKHARI, KATHMANDU",
   "page_number": 77,
   "examination_year": 2069,
-  "grade": "Twelve (Regular)",
-  "exame_Type": 1,
+  "grade": "Twelve",
+  "exame_Type": "Regular",
   "students": [
     {
       "symbol_number": "22708949",
@@ -14,49 +14,49 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
           "theory": "A",
-          "practical": null,
-          "total": null
+          "practical": "A",
+          "total": "A",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
           "theory": "A",
-          "practical": null,
-          "total": null
+          "practical": "A",
+          "total": "A",
+          "extra": false
         },
         {
           "subject_name": "MATHS",
-          "extra": false,
           "theory": "A",
-          "practical": null,
-          "total": null
+          "practical": "A",
+          "total": "A",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
           "theory": "A",
           "practical": "19",
-          "total": 19
+          "total": "19",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
           "theory": "A",
           "practical": "15",
-          "total": 15
+          "total": "15",
+          "extra": false
         },
         {
           "subject_name": "BIO",
-          "extra": false,
           "theory": "A",
           "practical": "15",
-          "total": 15
+          "total": "15",
+          "extra": false
         }
       ],
-      "grand_total": 0,
-      "remark": "FAILS"
+      "grand_total": "049",
+      "remark": "FAIL5"
     },
     {
       "symbol_number": "22708952",
@@ -66,48 +66,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 60
+          "theory": "60",
+          "practical": "60",
+          "total": "60",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 68
+          "theory": "68",
+          "practical": "68",
+          "total": "68",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 49
+          "theory": "28",
+          "practical": "21",
+          "total": "49",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 74
+          "theory": "58",
+          "practical": "16",
+          "total": "74",
+          "extra": false
         },
         {
           "subject_name": "MATHS",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 42
-        },
-        {
-          "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 42
+          "theory": "42",
+          "practical": "42",
+          "total": "84",
+          "extra": false
         }
       ],
-      "grand_total": 293,
+      "grand_total": "293",
       "remark": "PASS"
     },
     {
@@ -118,41 +111,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 63
+          "theory": "63",
+          "practical": "63",
+          "total": "63",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 72
+          "theory": "72",
+          "practical": "72",
+          "total": "72",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 46
+          "theory": "27",
+          "practical": "19",
+          "total": "46",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 71
+          "theory": "51",
+          "practical": "20",
+          "total": "71",
+          "extra": false
         },
         {
           "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 67
+          "theory": "47",
+          "practical": "20",
+          "total": "67",
+          "extra": false
         }
       ],
-      "grand_total": 319,
+      "grand_total": "319",
       "remark": "PASS"
     },
     {
@@ -163,48 +156,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 44
+          "theory": "44",
+          "practical": "44",
+          "total": "44",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 65
+          "theory": "65",
+          "practical": "65",
+          "total": "65",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 46
+          "theory": "27",
+          "practical": "19",
+          "total": "46",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 69
+          "theory": "54",
+          "practical": "15",
+          "total": "69",
+          "extra": false
         },
         {
           "subject_name": "MATHS",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 40
-        },
-        {
-          "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 40
+          "theory": "40",
+          "practical": "40",
+          "total": "80",
+          "extra": false
         }
       ],
-      "grand_total": 264,
+      "grand_total": "264",
       "remark": "PASS"
     },
     {
@@ -215,48 +201,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 67
+          "theory": "67",
+          "practical": "67",
+          "total": "67",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 72
+          "theory": "72",
+          "practical": "72",
+          "total": "72",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 60
+          "theory": "35",
+          "practical": "25",
+          "total": "60",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 68
-        },
-        {
-          "subject_name": "MATHS",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 35
+          "theory": "44",
+          "practical": "24",
+          "total": "68",
+          "extra": false
         },
         {
           "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 71
+          "theory": "47",
+          "practical": "24",
+          "total": "71",
+          "extra": false
         }
       ],
-      "grand_total": 338,
+      "grand_total": "338",
       "remark": "PASS"
     },
     {
@@ -267,48 +246,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 53
+          "theory": "53",
+          "practical": "53",
+          "total": "53",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 64
+          "theory": "64",
+          "practical": "64",
+          "total": "64",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
           "theory": "18*",
           "practical": "20",
-          "total": 38
+          "total": "38",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 69
-        },
-        {
-          "subject_name": "MATHS",
-          "extra": false,
-          "theory": "01*",
-          "practical": "01*",
-          "total": null
+          "theory": "52",
+          "practical": "17",
+          "total": "69",
+          "extra": false
         },
         {
           "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 63
+          "theory": "43",
+          "practical": "20",
+          "total": "63",
+          "extra": false
         }
       ],
-      "grand_total": 287,
+      "grand_total": "287",
       "remark": "FAIL1"
     },
     {
@@ -319,41 +291,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 72
+          "theory": "72",
+          "practical": "72",
+          "total": "72",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 75
+          "theory": "75",
+          "practical": "75",
+          "total": "75",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 74
+          "theory": "49",
+          "practical": "25",
+          "total": "74",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 78
+          "theory": "56",
+          "practical": "22",
+          "total": "78",
+          "extra": false
         },
         {
           "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 78
+          "theory": "54",
+          "practical": "24",
+          "total": "78",
+          "extra": false
         }
       ],
-      "grand_total": 377,
+      "grand_total": "377",
       "remark": "PASS"
     },
     {
@@ -364,41 +336,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 73
+          "theory": "73",
+          "practical": "73",
+          "total": "73",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 76
+          "theory": "76",
+          "practical": "76",
+          "total": "76",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 80
+          "theory": "55",
+          "practical": "25",
+          "total": "80",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 87
+          "theory": "62",
+          "practical": "25",
+          "total": "87",
+          "extra": false
         },
         {
           "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 74
+          "theory": "49",
+          "practical": "25",
+          "total": "74",
+          "extra": false
         }
       ],
-      "grand_total": 390,
+      "grand_total": "390",
       "remark": "PASS"
     },
     {
@@ -409,41 +381,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 68
+          "theory": "68",
+          "practical": "68",
+          "total": "68",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 72
+          "theory": "72",
+          "practical": "72",
+          "total": "72",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 63
+          "theory": "39",
+          "practical": "24",
+          "total": "63",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 65
+          "theory": "41",
+          "practical": "24",
+          "total": "65",
+          "extra": false
         },
         {
           "subject_name": "MATHS",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 55
+          "theory": "55",
+          "practical": "55",
+          "total": "110",
+          "extra": false
         }
       ],
-      "grand_total": 323,
+      "grand_total": "323",
       "remark": "PASS"
     },
     {
@@ -454,41 +426,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 62
+          "theory": "62",
+          "practical": "62",
+          "total": "62",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 62
+          "theory": "62",
+          "practical": "62",
+          "total": "62",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 49
+          "theory": "30",
+          "practical": "19",
+          "total": "49",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 69
+          "theory": "48",
+          "practical": "21",
+          "total": "69",
+          "extra": false
         },
         {
           "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 53
+          "theory": "33",
+          "practical": "20",
+          "total": "53",
+          "extra": false
         }
       ],
-      "grand_total": 295,
+      "grand_total": "295",
       "remark": "PASS"
     },
     {
@@ -499,41 +471,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 71
+          "theory": "71",
+          "practical": "71",
+          "total": "71",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 68
+          "theory": "68",
+          "practical": "68",
+          "total": "68",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 55
+          "theory": "32",
+          "practical": "23",
+          "total": "55",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 63
+          "theory": "40",
+          "practical": "23",
+          "total": "63",
+          "extra": false
         },
         {
           "subject_name": "MATHS",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 44
+          "theory": "44",
+          "practical": "44",
+          "total": "88",
+          "extra": false
         }
       ],
-      "grand_total": 301,
+      "grand_total": "301",
       "remark": "PASS"
     },
     {
@@ -544,41 +516,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 72
+          "theory": "72",
+          "practical": "72",
+          "total": "72",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 66
+          "theory": "66",
+          "practical": "66",
+          "total": "66",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 59
+          "theory": "37",
+          "practical": "22",
+          "total": "59",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 63
+          "theory": "40",
+          "practical": "23",
+          "total": "63",
+          "extra": false
         },
         {
           "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 59
+          "theory": "36",
+          "practical": "23",
+          "total": "59",
+          "extra": false
         }
       ],
-      "grand_total": 319,
+      "grand_total": "319",
       "remark": "PASS"
     },
     {
@@ -589,41 +561,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 57
+          "theory": "57",
+          "practical": "57",
+          "total": "57",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 66
+          "theory": "66",
+          "practical": "66",
+          "total": "66",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 57
+          "theory": "36",
+          "practical": "21",
+          "total": "57",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 61
+          "theory": "39",
+          "practical": "22",
+          "total": "61",
+          "extra": false
         },
         {
           "subject_name": "BIO",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 51
+          "theory": "29",
+          "practical": "22",
+          "total": "51",
+          "extra": false
         }
       ],
-      "grand_total": 292,
+      "grand_total": "292",
       "remark": "PASS"
     },
     {
@@ -634,41 +606,41 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 62
+          "theory": "62",
+          "practical": "62",
+          "total": "62",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 69
+          "theory": "69",
+          "practical": "69",
+          "total": "69",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 47
+          "theory": "27",
+          "practical": "20",
+          "total": "47",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 55
+          "theory": "42",
+          "practical": "13",
+          "total": "55",
+          "extra": false
         },
         {
           "subject_name": "MATHS",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 35
+          "theory": "35",
+          "practical": "35",
+          "total": "70",
+          "extra": false
         }
       ],
-      "grand_total": 268,
+      "grand_total": "268",
       "remark": "PASS"
     },
     {
@@ -679,46 +651,42 @@
       "subjects": [
         {
           "subject_name": "C.ENG",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 70
+          "theory": "70",
+          "practical": "70",
+          "total": "70",
+          "extra": false
         },
         {
           "subject_name": "C.NEP",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 76
+          "theory": "76",
+          "practical": "76",
+          "total": "76",
+          "extra": false
         },
         {
           "subject_name": "PHY",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 61
+          "theory": "37",
+          "practical": "24",
+          "total": "61",
+          "extra": false
         },
         {
           "subject_name": "CHEM",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 61
+          "theory": "37",
+          "practical": "24",
+          "total": "61",
+          "extra": false
         },
         {
           "subject_name": "MATHS",
-          "extra": false,
-          "theory": null,
-          "practical": null,
-          "total": 69
+          "theory": "69",
+          "practical": "69",
+          "total": "138",
+          "extra": false
         }
       ],
-      "grand_total": 337,
+      "grand_total": "337",
       "remark": "PASS"
     }
-  ],
-  "handwritten_marginal_notes": [
-    "Page # 77",
-    "2069"
   ]
 }
