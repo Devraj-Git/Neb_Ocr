@@ -249,9 +249,9 @@ class RadiantUltraScanner(ctk.CTk):
             self.webhook_client_id_lbl.configure(
                 text=f"Client: {API_CLIENT_ID or 'default'}"
             )
-            self.webhook_interval_lbl.configure(
-                text=f"Transport: SSE"
-            )
+            # self.webhook_interval_lbl.configure(
+            #     text=f"Transport: SSE"
+            # )
 
     def load_hardware_devices(self):
         try:
@@ -420,13 +420,13 @@ class RadiantUltraScanner(ctk.CTk):
         )
         self.webhook_client_id_lbl.pack(side="left")
 
-        self.webhook_interval_lbl = ctk.CTkLabel(
-            info_row,
-            text="Poll: ...",
-            font=("JetBrains Mono", 9),
-            text_color=COLORS["text_dim"]
-        )
-        self.webhook_interval_lbl.pack(side="right")
+        # self.webhook_interval_lbl = ctk.CTkLabel(
+        #     info_row,
+        #     text="Poll: ...",
+        #     font=("JetBrains Mono", 9),
+        #     text_color=COLORS["text_dim"]
+        # )
+        # self.webhook_interval_lbl.pack(side="right")
 
         # Time Widget
         self.stats_box = ctk.CTkFrame(self.sidebar, fg_color="#1E293B", corner_radius=15, height=60)
