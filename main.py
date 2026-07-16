@@ -3,21 +3,21 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
-from PIL import Image, ImageDraw
+from PIL import Image
 import os
 import datetime
 import threading
-import time
-from wia_scan import get_device_manager, connect_to_device_by_uid, scan_side
+
 from neb_utils.utils import (
-    get_next_filename, save_image_smart, to_roman,
+    save_image_smart, to_roman,
     build_image_filename,
-    load_checkpoint, save_checkpoint, delete_checkpoint,
 )
-from neb_utils.vlm_front import get_vlm_result, save_vlm_to_database
-from neb_utils.ollama_pipeline import _get_db, get_exam_id, is_student_already_in_db
-from neb_utils.webhook_client import WebhookClient
-import pythoncom
+from neb_utils.icons import OCR_ICON, DB_ICON, IMAGE_ICON, FOLDER_ICON, GLOBE_ICON
+from neb_utils.batch_processor import BatchProcessor
+from neb_utils.db_operations import DbAndOcrProcessor
+from neb_utils.scanner_ops import ScannerProcessor
+from neb_utils.webhook_handler import WebhookHandler
+from neb_utils.image_editor import ImageEditor
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -36,103 +36,6 @@ COLORS = {
     "dock": "#111827",
     "danger": "#EF4444"
 }
-
-
-# ── Button icons (generated once via PIL) ────────────────────
-
-def _make_icon(draw_func, size=20, color="white"):
-    """Create a small CTkImage icon from a PIL drawing function."""
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    draw_func(draw, size, color)
-    return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
-
-
-def _draw_scan_icon(draw, size, color):
-    """Draw a small OCR/scan icon (document with lines)."""
-    c = color
-    m = 3  # margin
-    w, h = size - 2*m, size - 2*m
-    # Document body
-    draw.rectangle([m, m, m+w, m+h], outline=c, width=1)
-    # Content lines
-    for y in range(m + 4, m + h - 2, 4):
-        draw.line([m + 2, y, m + w - 2, y], fill=c, width=1)
-
-
-def _draw_save_icon(draw, size, color):
-    """Draw a small database/save icon (cylinder)."""
-    c = color
-    m = 3
-    w, h = size - 2*m, size - 2*m
-    cx = size // 2
-    # Cylinder top ellipse
-    draw.ellipse([m, m, m+w, m + h//3], outline=c, width=1)
-    # Cylinder body
-    draw.line([m, m + h//3, m, m + h - h//3], fill=c, width=1)
-    draw.line([m+w, m + h//3, m+w, m + h - h//3], fill=c, width=1)
-    # Cylinder bottom curve
-    draw.ellipse([m, m + h - h//3, m+w, m + h], outline=c, width=1)
-
-
-def _draw_folder_icon(draw, size, color):
-    """Draw a small folder icon."""
-    c = color
-    m = 3
-    w, h = size - 2*m, size - 2*m
-    # Folder tab
-    draw.polygon([m + 2, m, m + w//3, m, m + w//3 + 2, m + 3, m + w - 2, m + 3],
-                 outline=c, width=1)
-    # Folder body
-    draw.rectangle([m, m + 3, m + w - 2, m + h - 2], outline=c, width=1)
-
-
-OCR_ICON = _make_icon(_draw_scan_icon, 20, "white")
-DB_ICON = _make_icon(_draw_save_icon, 20, "white")
-def _draw_image_icon(draw, size, color):
-    """Draw a small image/picture icon (landscape with mountain)."""
-    c = color
-    m = 3
-    w, h = size - 2*m, size - 2*m
-    # Frame (landscape rectangle)
-    draw.rectangle([m, m + 2, m + w, m + h - 2], outline=c, width=1)
-    # Sun (small circle top-right)
-    cx_sun = m + int(w * 0.75)
-    cy_sun = m + 6
-    draw.ellipse([cx_sun - 2, cy_sun - 2, cx_sun + 2, cy_sun + 2], outline=c, width=1)
-    # Mountain (triangle)
-    draw.polygon([
-        m + 2, m + h - 2,
-        m + w // 2 - 2, m + 6,
-        m + w - 2, m + h - 2,
-    ], outline=c, width=1)
-    # Base line (ground)
-    draw.line([m, m + h - 2, m + w, m + h - 2], fill=c, width=1)
-
-
-def _draw_globe_icon(draw, size, color):
-    """Draw a small globe icon (circle with latitude/longitude lines)."""
-    c = color
-    m = 3
-    w, h = size - 2*m, size - 2*m
-    cx = size // 2
-    # Outer circle
-    draw.ellipse([m, m, m+w, m+h], outline=c, width=1)
-    # Vertical longitude line
-    draw.line([cx, m, cx, m+h], fill=c, width=1)
-    # Horizontal latitude lines
-    lat_y1 = m + h // 3
-    lat_y2 = m + 2 * h // 3
-    draw.line([m, lat_y1, m+w, lat_y1], fill=c, width=1)
-    draw.line([m, lat_y2, m+w, lat_y2], fill=c, width=1)
-    # Diagonal curve (continent suggestion)
-    draw.arc([m + w//4, m + h//4, m + 3*w//4, m + 3*h//4],
-              start=-45, end=90, fill=c, width=1)
-
-
-IMAGE_ICON = _make_icon(_draw_image_icon, 18, "#94A3B8")
-FOLDER_ICON = _make_icon(_draw_folder_icon, 18, "#94A3B8")
-GLOBE_ICON = _make_icon(_draw_globe_icon, 16, "#94A3B8")
 
 ctk.set_appearance_mode("Dark")
 
@@ -169,111 +72,29 @@ class RadiantUltraScanner(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # ── Webhook client reference (initialized after sidebar) ──
-        self.webhook_client: WebhookClient = None
-        self._webhook_status = "DISABLED"
+
+
+        # ── Shared constants (also used by sub-processors) ──
+        self.BASE_SAVE_PATH = BASE_SAVE_PATH
+        self.COLORS = COLORS
+
+        # ── Sub-processors (created first — UI methods reference them) ──
+        self.batch_processor = BatchProcessor(self)
+        self.db_processor = DbAndOcrProcessor(self)
+        self.scanner_processor = ScannerProcessor(self)
+        self.webhook_handler = WebhookHandler(self)
+        self.image_editor = ImageEditor(self)
 
         self.setup_sidebar()
         self.setup_main_view()
         self.setup_loading_overlay()
         self.update_live_elements()
-        
+
         # FINAL UPGRADE: Professional Initial Log
-        self.load_hardware_devices()
+        self.scanner_processor.load_hardware_devices()
 
         # ── Start webhook polling client ──
-        self._init_webhook_client()
-
-    # ── Webhook Client ──────────────────────────────────────────
-
-    def _init_webhook_client(self):
-        """Initialize and start the webhook polling client."""
-        self.webhook_client = WebhookClient(
-            status_callback=self._on_webhook_status,
-            log_callback=self._on_webhook_log,
-        )
-        self.webhook_client.start()
-
-    def _on_webhook_status(self, status: str):
-        """Update the webhook status indicator in the sidebar (thread-safe)."""
-        self._webhook_status = status
-        self.after(0, self._refresh_webhook_ui)
-
-    def _on_webhook_log(self, msg: str):
-        """Forward webhook log messages to the console (thread-safe)."""
-        self.after(0, lambda m=msg: self.log_message(m))
-
-    def _refresh_webhook_ui(self):
-        """Refresh the webhook status UI elements based on current state."""
-        s = self._webhook_status
-
-        # ── Header indicator ──
-        if s == "CONNECTED":
-            text = "REMOTE: ● ONLINE"
-            color = COLORS["success"]
-            bg = "#14532D"
-        elif s == "DISCONNECTED":
-            text = "REMOTE: ○ OFFLINE"
-            color = COLORS["danger"]
-            bg = "#7F1D1D"
-        elif s == "DISABLED":
-            text = "REMOTE: ○ DISABLED"
-            color = COLORS["text_dim"]
-            bg = COLORS["sidebar"]
-        elif s == "AUTH_ERROR":
-            text = "REMOTE: ● AUTH FAIL"
-            color = COLORS["danger"]
-            bg = "#7F1D1D"
-        elif s == "ERROR":
-            text = "REMOTE: ● ERROR"
-            color = COLORS["danger"]
-            bg = "#7F1D1D"
-        elif s.startswith("PROCESSING"):
-            text = f"REMOTE: ⏳ {s}"
-            color = COLORS["accent"]
-            bg = "#0C4A6E"
-        else:
-            text = f"REMOTE: {s}"
-            color = COLORS["text_dim"]
-            bg = COLORS["sidebar"]
-
-        self.webhook_status_lbl.configure(text=text, text_color=color, fg_color=bg,
-                                           image=GLOBE_ICON, compound="left")
-
-        # ── Info frame labels ──
-        if hasattr(self, 'webhook_url_lbl'):
-            from neb_utils.webhook_client import API_BASE_URL, API_CLIENT_ID
-            self.webhook_url_lbl.configure(
-                text=f"Server: {API_BASE_URL or 'not set'}"
-            )
-            self.webhook_client_id_lbl.configure(
-                text=f"Client: {API_CLIENT_ID or 'default'}"
-            )
-            # self.webhook_interval_lbl.configure(
-            #     text=f"Transport: SSE"
-            # )
-
-    def load_hardware_devices(self):
-        try:
-            manager = get_device_manager()
-            device_names = []
-            self.uids = []
-            for i in range(1, manager.DeviceInfos.Count + 1):
-                info = manager.DeviceInfos(i)
-                device_names.append(info.Properties("Name").Value)
-                self.uids.append(info.DeviceID)
-
-            if device_names:
-                self.scanner_menu.configure(values=device_names)
-                self.scanner_menu.set(device_names[0])
-                self.log_message(f"🔍 Scanner detected: {device_names[0]}")
-            else:
-                self.scanner_menu.configure(values=["No Scanner Detected"])
-                self.log_message("ℹ️ No WIA scanner device found. Use 'IMPORT FROM DISK' to load an image.")
-        except Exception as e:
-            self.scanner_menu.configure(values=["No Scanner Detected"])
-            self.scanner_menu.set("No Scanner Detected")
-            self.log_message(f"ℹ️ No scanner hardware available. Use 'IMPORT FROM DISK' to load an image.")
+        self.webhook_handler.init_client()
 
     def setup_sidebar(self):
         self.sidebar = ctk.CTkFrame(self, width=320, corner_radius=0, fg_color=COLORS["sidebar"], border_width=2, border_color=COLORS["border"])
@@ -358,7 +179,7 @@ class RadiantUltraScanner(ctk.CTk):
         self.grade_btn.set("11")
 
         # Action Buttons (packed first → bottommost)
-        self.scan_btn = ctk.CTkButton(self.sidebar, text="START SCAN", command=self.run_hardware_scan, height=55, corner_radius=12, fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], font=("Inter", 14, "bold"))
+        self.scan_btn = ctk.CTkButton(self.sidebar, text="START SCAN", command=self.scanner_processor.run_hardware_scan, height=55, corner_radius=12, fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], font=("Inter", 14, "bold"))
         self.scan_btn.pack(side="bottom", fill="x", padx=30, pady=(10, 20))
 
         # ── Import row: IMAGE + FOLDER side by side (above START SCAN) ──
@@ -377,7 +198,7 @@ class RadiantUltraScanner(ctk.CTk):
         self.import_folder_btn = ctk.CTkButton(
             self.import_row, text="FOLDER",
             image=FOLDER_ICON, compound="left",
-            command=self.select_folder,
+            command=self.batch_processor.select_folder,
             height=40, corner_radius=10, fg_color="transparent",
             border_width=1, border_color=COLORS["border"],
             font=("Inter", 11, "bold")
@@ -450,10 +271,11 @@ class RadiantUltraScanner(ctk.CTk):
         self.display_label.pack(expand=True, fill="both", padx=20, pady=20)
 
         # Bindings
-        self.display_label.bind("<ButtonPress-1>", self.start_drag)
-        self.display_label.bind("<B1-Motion>", self.do_drag)
-        self.view_card.bind("<MouseWheel>", self.zoom_image)
-        self.display_label.bind("<MouseWheel>", self.zoom_image)
+        e = self.image_editor
+        self.display_label.bind("<ButtonPress-1>", e.start_drag)
+        self.display_label.bind("<B1-Motion>", e.do_drag)
+        self.view_card.bind("<MouseWheel>", e.zoom_image)
+        self.display_label.bind("<MouseWheel>", e.zoom_image)
 
         # Variables
         self.zoom_level = 1.0
@@ -463,12 +285,12 @@ class RadiantUltraScanner(ctk.CTk):
         self.float_bar = ctk.CTkFrame(self.view_card, fg_color=COLORS["dock"], height=55, corner_radius=18, border_width=1, border_color=COLORS["border"])
         self.float_bar.place(relx=0.5, rely=0.92, anchor="center")
         
-        self.create_dock_btn(self.float_bar, "⟳", self.rotate_image, COLORS["text_main"])
-        self.create_dock_btn(self.float_bar, "✂", self.toggle_crop_mode, COLORS["text_main"])
-        self.create_dock_btn(self.float_bar, "↶", self.undo_last_action, COLORS["text_main"])
-        self.create_dock_btn(self.float_bar, "📥", self.save_image, COLORS["text_main"])
-        self.create_dock_btn(self.float_bar, "⎙", self.print_image, COLORS["text_main"])
-        self.create_dock_btn(self.float_bar, "🗑", self.clear_canvas, COLORS["danger"])
+        e.create_dock_btn(self.float_bar, "⟳", e.rotate_image, COLORS["text_main"])
+        e.create_dock_btn(self.float_bar, "✂", e.toggle_crop_mode, COLORS["text_main"])
+        e.create_dock_btn(self.float_bar, "↶", e.undo_last_action, COLORS["text_main"])
+        e.create_dock_btn(self.float_bar, "📥", e.save_image, COLORS["text_main"])
+        e.create_dock_btn(self.float_bar, "⎙", e.print_image, COLORS["text_main"])
+        e.create_dock_btn(self.float_bar, "🗑", e.clear_canvas, COLORS["danger"])
 
         # Console Log
         self.log_box = ctk.CTkTextbox(self.main_view, height=100, fg_color="#020617", border_width=1, border_color=COLORS["border"], font=("JetBrains Mono", 11), text_color=COLORS["success"])
@@ -481,7 +303,7 @@ class RadiantUltraScanner(ctk.CTk):
         self.proceed_btn = ctk.CTkButton(
             self.button_row, text="PROCEED TO OCR ENGINE", 
             image=OCR_ICON, compound="left",
-            command=self.run_ocr, width=350, height=60, 
+            command=self.db_processor.run_ocr, width=350, height=60, 
             corner_radius=30, fg_color=COLORS["success"], 
             font=("Inter", 16, "bold")
         )
@@ -491,7 +313,7 @@ class RadiantUltraScanner(ctk.CTk):
             self.button_row, 
             text="COMMIT TO DATABASE", 
             image=DB_ICON, compound="left",
-            command=self.save_to_database,
+            command=self.db_processor.save_to_database,
             width=350, height=60, 
             corner_radius=30,
             fg_color="#334155", # Professional slate for disabled state
@@ -510,671 +332,13 @@ class RadiantUltraScanner(ctk.CTk):
 
         self.auto_commit_cb = ctk.CTkCheckBox(
             self.auto_commit_row, text="Auto-commit to DB (skip confirmation)",
-            variable=self.auto_commit, command=self._toggle_auto_commit,
+            variable=self.auto_commit, command=self.db_processor.toggle_auto_commit,
             font=("Inter", 11, "bold"), text_color=COLORS["text_dim"],
             fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"],
             checkmark_color="white", border_color=COLORS["border"]
         )
         self.auto_commit_cb.pack(side="right", padx=(0, 10))
 
-
-    def start_drag(self, event):
-        """Record the global mouse position and the current label position."""
-        if self.selected_file:
-            self.drag_data["mouse_x"] = event.x_root
-            self.drag_data["mouse_y"] = event.y_root
-            self.drag_data["label_x"] = self.display_label.winfo_x()
-            self.drag_data["label_y"] = self.display_label.winfo_y()
-            self.display_label.configure(cursor="fleur")
-
-    def do_drag(self, event):
-        """Calculate movement based on global screen delta."""
-        if self.selected_file:
-            dx = event.x_root - self.drag_data["mouse_x"]
-            dy = event.y_root - self.drag_data["mouse_y"]
-            new_x = self.drag_data["label_x"] + dx
-            new_y = self.drag_data["label_y"] + dy
-            self.display_label.place(x=new_x, y=new_y, anchor="nw")
-
-    def zoom_image(self, event):
-        """Resizes the image and centers it."""
-        if not self.selected_file: return
-        if event.delta > 0: self.zoom_level *= 1.1
-        else: self.zoom_level /= 1.1
-        self.zoom_level = max(0.2, min(self.zoom_level, 4.0))
-        self.display_image()
-
-    def create_dock_btn(self, parent, icon, command, color):
-        btn = ctk.CTkButton(parent, text=icon, width=60, height=40, corner_radius=12, 
-                             fg_color="transparent", text_color=color,
-                             hover_color="#334155", font=("Inter", 22), command=command)
-        btn.pack(side="left", padx=10, pady=5)
-
-    def run_hardware_scan(self):
-        self.overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
-        self.load_info.pack(expand=True, pady=(0, 10))
-        self.prog.pack(pady=10)
-        self.prog.start()
-        self.update() 
-        self.log_message("Initializing WIA hardware...")
-        scan_thread = threading.Thread(target=self.scan_thread_logic, daemon=True)
-        scan_thread.start()
-    
-    def scan_thread_logic(self):
-        pythoncom.CoInitialize() # Fixes "CoInitialize has not been called"
-        try:
-            # Get UI selections
-            selected_year = self.year_box.get()
-            selected_exam = self.exam_btn.get()
-            selected_grade = self.grade_btn.get()
-            roman_grade = to_roman(selected_grade)
-            year_folder = os.path.join(BASE_SAVE_PATH, selected_year)
-            exam_folder_name = f"{selected_year} {roman_grade} {selected_exam}"
-            final_folder = os.path.join(year_folder, exam_folder_name)
-            os.makedirs(final_folder, exist_ok=True)
-            save_path = get_next_filename(final_folder)
-            
-            selected_name = self.scanner_menu.get()
-            target_uid = self.uids[self.scanner_menu._values.index(selected_name)]
-            connected_device = connect_to_device_by_uid(device_uid=target_uid)
-            img = scan_side(device=connected_device)
-            # save_path = os.path.join(os.path.dirname(__file__), "scanned_output.jpg")
-            img.save(save_path, "JPEG", quality=95)
-            self.selected_file = save_path
-            self.after(0, self.finish_scan_ui)
-        except Exception as e:
-            error_msg = str(e)
-            self.after(0, lambda m=error_msg: messagebox.showerror("Hardware Error", m))
-            self.after(0, lambda: self.overlay.place_forget())
-        finally:
-            pythoncom.CoUninitialize()
-
-    def finish_scan_ui(self):
-        self.overlay.place_forget()
-        self.prog.stop()
-        if self.selected_file:
-            self.display_image() # Call your existingPIL/CTK display logic
-            self.log_message("Buffer digitized: [SUCCESS]")
-
-    def run_ocr(self):
-        if self.selected_file:
-            self.proceed_btn.configure(state="disabled", text="", fg_color=COLORS["sidebar"])
-            self.btn_loader = ctk.CTkProgressBar(self.proceed_btn, width=280, height=8, 
-                                                mode="indeterminate", 
-                                                progress_color=COLORS["accent"])
-            self.btn_loader.place(relx=0.5, rely=0.5, anchor="center")
-            self.btn_loader.start()
-            self.log_message("OCR Engine: Extracting high-precision data...")
-            threading.Thread(target=self.ocr_thread_logic, daemon=True).start()
-        else:
-            messagebox.showwarning("System", "Input buffer empty. Please scan a document first.")
-
-    def ocr_thread_logic(self, img_path=None):
-        target = img_path or self.selected_file
-        try:
-            data_dict, summary_text = get_vlm_result(target)
-
-            self.after(0, lambda: self.finalize_ocr_button(data_dict, img_path=target))
-            self.after(0, lambda: self.log_message(summary_text))
-
-        except Exception as e:
-            err = f"VLM OCR Error on {os.path.basename(target)}: {str(e)}"
-            self.after(0, lambda: self.log_message(err))
-            self.after(0, lambda: self.finalize_ocr_button(error=True, img_path=target))
-
-    def finalize_ocr_button(self, results=None, error=None, img_path=None):
-        if hasattr(self, 'btn_loader') and self.btn_loader.winfo_exists():
-            self.btn_loader.stop()
-            self.btn_loader.destroy()
-
-        if results:
-            self.current_vlm_raw = results
-            self.current_ocr_data = results.get("students", [])
-
-            # --- Auto-update UI inputs from VLM extraction ---
-            self._sync_ui_from_vlm(results)
-
-            student_count = len(self.current_ocr_data)
-            img_name = os.path.basename(img_path) if img_path else self.selected_file
-            img_name = os.path.basename(img_name) if img_name else "?"
-
-            self.log_message(f"✅ {img_name}: {student_count} students extracted.")
-
-            # --- Auto-commit if checkbox is checked ---
-            if self.auto_commit.get():
-                self.log_message("⏳ Auto-committing to database...")
-                img_target = img_path or self.selected_file
-                threading.Thread(target=self._auto_save_to_db, args=(img_target,), daemon=True).start()
-            else:
-                self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
-                self.db_save_btn.configure(state="normal", fg_color=COLORS["success"])
-                self.log_message("System: Records verified. Ready for Database Commit.")
-
-        if error:
-            self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
-            self.log_message(f"VLM OCR Error: {error}")
-
-    def _toggle_auto_commit(self):
-        """Enable/disable DB save button based on auto-commit checkbox."""
-        if self.auto_commit.get():
-            self.db_save_btn.configure(state="disabled", fg_color=COLORS["border"],
-                                        text="AUTO-COMMIT ON")
-        else:
-            if self.current_ocr_data:
-                self.db_save_btn.configure(state="normal", fg_color=COLORS["success"],
-                                            text="COMMIT TO DATABASE")
-            else:
-                self.db_save_btn.configure(state="disabled", fg_color=COLORS["border"],
-                                            text="COMMIT TO DATABASE")
-
-    def _auto_save_to_db(self, img_path: str):
-        """Save OCR result to DB without confirmation dialog (used in auto-commit mode)."""
-        if not self.current_vlm_raw:
-            return
-
-        meta = {
-            "grade": self.grade_btn.get(),
-            "exam_type": self.exam_btn.get(),
-            "exam_year": self.year_box.get(),
-            "book_name": None,
-            "qc_check": "0",
-            "qc_remarks": None,
-            "cluster_id": None,
-            "ui": "True",
-            "remarks": None,
-            "is_legacy_image": False,
-        }
-
-        try:
-            save_vlm_to_database(self.current_vlm_raw, img_path, meta=meta)
-            student_count = len(self.current_ocr_data)
-            self.log_message(f"💾 Auto-committed {student_count} records to DB.")
-        except Exception as e:
-            self.log_message(f"❌ Auto-commit failed: {e}")
-
-        if not self.is_batch_mode:
-            self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE",
-                                        fg_color=COLORS["success"])
-
-    def select_folder(self):
-        """Open folder dialog and start batch OCR processing with resume support."""
-        folder_path = filedialog.askdirectory(title="Select Folder with Mark Sheet Images")
-        if not folder_path:
-            return
-
-        folder_abs = os.path.abspath(folder_path)
-
-        # Recursively scan all subfolders for images
-        valid_exts = {".jpg", ".jpeg", ".png", ".bmp"}
-        all_files = []  # List of (relative_path, filename)
-        for root, dirs, files in os.walk(folder_abs):
-            for fname in sorted(files):
-                ext = os.path.splitext(fname)[1].lower()
-                if ext in valid_exts:
-                    # Store relative path from the selected root folder
-                    rel_path = os.path.relpath(os.path.join(root, fname), folder_abs)
-                    all_files.append(rel_path)
-        all_files.sort()
-
-        if not all_files:
-            messagebox.showwarning("Empty Folder", "No image files found in the selected folder or its subfolders.")
-            return
-
-        # --- Check for existing checkpoint (resume support) ---
-        checkpoint = load_checkpoint()
-        resume_remaining = None
-        completed_originals = set()
-        file_map = {}
-
-        if checkpoint and checkpoint.get("source_folder") == folder_abs:
-            resume_remaining = checkpoint.get("remaining", [])
-            completed_originals = set(checkpoint.get("completed", []))
-            file_map = checkpoint.get("file_map", {})
-
-            done_count = len(completed_originals)
-            total = checkpoint.get("total", len(all_files))
-            if resume_remaining:
-                answer = messagebox.askyesno(
-                    "Resume Batch",
-                    f"Found existing checkpoint for this folder.\n"
-                    f"{done_count} of {total} images already completed.\n\n"
-                    f"Resume processing the remaining {len(resume_remaining)}?",
-                    icon="question"
-                )
-                if not answer:
-                    delete_checkpoint()
-                    resume_remaining = None
-                    completed_originals = set()
-                    file_map = {}
-
-        # Build the work queue
-        if resume_remaining is not None:
-            # Resume mode: use remaining list from checkpoint
-            work_queue = list(resume_remaining)
-            skip_count = len(completed_originals)
-        else:
-            # Fresh start: process All files
-            work_queue = list(all_files)
-            completed_originals = set()
-            file_map = {}
-            skip_count = 0
-
-        if not work_queue:
-            messagebox.showinfo("All Done", "All images in this folder have already been processed!")
-            return
-
-        self.batch_files = work_queue
-        self.batch_total = len(all_files)
-        self.batch_index = 0
-        self.batch_success = skip_count
-        self.batch_fail = 0
-        self.batch_abort = False
-        self.is_batch_mode = True
-        self.batch_folder = folder_abs
-        self.batch_file_map = file_map
-        self.batch_completed_originals = completed_originals
-
-        self.log_message(f"\n{'='*60}")
-        self.log_message(f"📂 BATCH MODE: '{os.path.basename(folder_abs)}'")
-        self.log_message(f"   Total in folder: {self.batch_total}  |  Already completed: {skip_count}  |  Queue: {len(work_queue)}")
-        self.log_message(f"{'='*60}")
-
-        # Disable UI during batch
-        self.import_btn.configure(state="disabled")
-        self.import_folder_btn.configure(state="disabled", text="PROCESSING...", image=None)
-        self.proceed_btn.configure(state="disabled", text="BATCH ACTIVE")
-        self.scan_btn.configure(state="disabled")
-
-        threading.Thread(target=self.process_folder_thread, daemon=True).start()
-
-    def _process_and_save_image(self, img_path: str, source_filename: str = "",
-                                  log_prefix: str = ""):
-        """
-        Shared helper: copy image → run OCR → rename → save to DB with dedup.
-
-        Args:
-            img_path: Source image path.
-            source_filename: Original filename (for error logging).
-            log_prefix: Optional prefix for log messages (e.g. "[3/10] ").
-
-        Returns:
-            (success: bool, renamed_path: str|None, data_dict: dict|None)
-        """
-        renamed_path = None
-        data_dict = None
-
-        try:
-            # Build target folder from sidebar selections
-            selected_year = self.year_box.get()
-            selected_exam = self.exam_btn.get()
-            selected_grade = self.grade_btn.get()
-            roman_grade = to_roman(selected_grade)
-            year_folder = os.path.join(BASE_SAVE_PATH, selected_year)
-            exam_folder = os.path.join(
-                year_folder, f"{selected_year} {roman_grade} {selected_exam}"
-            )
-            os.makedirs(exam_folder, exist_ok=True)
-
-            # Copy image to save folder
-            saved_path = save_image_smart(img_path, exam_folder)
-
-            # Run OCR
-            data_dict, _ = get_vlm_result(saved_path)
-
-            # Rename image to meaningful name
-            new_name = build_image_filename(data_dict)
-            renamed_path = os.path.join(exam_folder, new_name)
-            if os.path.normpath(saved_path) != os.path.normpath(renamed_path):
-                if os.path.exists(renamed_path):
-                    os.remove(renamed_path)
-                os.rename(saved_path, renamed_path)
-            else:
-                renamed_path = saved_path
-
-            # Store in current context
-            self.current_vlm_raw = data_dict
-            self.current_ocr_data = data_dict.get("students", [])
-            student_count = len(self.current_ocr_data)
-
-            # Build metadata from sidebar selections
-            meta = {
-                "grade": selected_grade,
-                "exam_type": selected_exam,
-                "exam_year": selected_year,
-                "book_name": None,
-                "qc_check": "0",
-                "qc_remarks": None,
-                "cluster_id": None,
-                "ui": "True",
-                "remarks": None,
-                "is_legacy_image": False,
-            }
-
-            # Save to DB with dedup check
-            saved_count = 0
-            skipped_count = 0
-
-            try:
-                conn = _get_db()
-                exam_id = get_exam_id(
-                    conn, meta["exam_year"], meta["grade"], meta["exam_type"]
-                )
-
-                if exam_id:
-                    new_students = []
-                    for s in data_dict.get("students", []):
-                        reg = s.get("registration_number", "") if isinstance(s, dict) else s.registration_number
-                        if not is_student_already_in_db(conn, reg, exam_id):
-                            new_students.append(s)
-                        else:
-                            skipped_count += 1
-                    conn.close()
-
-                    if new_students:
-                        filtered_data = dict(data_dict)
-                        filtered_data["students"] = new_students
-                        save_vlm_to_database(filtered_data, renamed_path, meta=meta)
-                        saved_count = len(new_students)
-                else:
-                    conn.close()
-                    save_vlm_to_database(data_dict, renamed_path, meta=meta)
-                    saved_count = student_count
-
-            except Exception as db_err:
-                self.after(0, lambda e=db_err:
-                    self.log_message(f"⚠️ DB check failed (saving anyway): {e}"))
-                save_vlm_to_database(data_dict, renamed_path, meta=meta)
-                saved_count = student_count
-
-            # Log result
-            log_msg = f"💾 {log_prefix}{new_name}: {saved_count} saved"
-            if skipped_count:
-                log_msg += f", {skipped_count} already in DB (skipped)"
-            self.after(0, lambda m=log_msg: self.log_message(m))
-
-            return True, renamed_path, data_dict
-
-        except Exception as e:
-            log_name = source_filename or os.path.basename(img_path)
-            self.after(0, lambda f=log_name, err=str(e):
-                self.log_message(f"❌ {f} FAILED: {err}"))
-            return False, renamed_path, data_dict
-
-    def process_folder_thread(self):
-        """Process all images in batch mode sequentially, with checkpoint updates."""
-        while self.batch_index < len(self.batch_files) and not self.batch_abort:
-            orig_filename = self.batch_files[self.batch_index]
-            self.batch_index += 1
-
-            img_path = os.path.join(self.batch_folder, orig_filename)
-            idx = self.batch_index
-            total = self.batch_total
-
-            self.after(0, lambda i=idx, t=total, f=orig_filename:
-                self.log_message(f"\n[{i}/{t}] Processing: {f}"))
-
-            success, renamed_path, data_dict = self._process_and_save_image(
-                img_path, source_filename=orig_filename,
-                log_prefix=f"[{idx}/{total}] "
-            )
-
-            if success:
-                # Track file mapping and update checkpoint
-                new_name = os.path.basename(renamed_path)
-                self.batch_file_map[orig_filename] = new_name
-
-                self.batch_completed_originals.add(orig_filename)
-                remaining = [f for f in self.batch_files if f not in self.batch_completed_originals]
-                self.after(0, lambda p=renamed_path: self._set_preview(p))
-                self.after(0, lambda sf=self.batch_folder, tt=self.batch_total,
-                           fm=self.batch_file_map, co=self.batch_completed_originals, rem=remaining:
-                    save_checkpoint(sf, tt, dict(fm), list(co), rem))
-
-                self.batch_success += 1
-            else:
-                self.batch_fail += 1
-
-        # Batch complete — clean up UI
-        self.after(0, self._finish_batch)
-
-    def _finish_batch(self):
-        """Re-enable UI after batch processing completes and clean up checkpoint."""
-        self.is_batch_mode = False
-        self.import_btn.configure(state="normal")
-        self.import_folder_btn.configure(state="normal", text="FOLDER", image=FOLDER_ICON)
-        self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
-        self.scan_btn.configure(state="normal")
-
-        total = self.batch_total
-        success = self.batch_success
-        fail = self.batch_fail
-
-        # Delete checkpoint ONLY if all succeeded (no remaining failures)
-        if fail == 0 and success >= total:
-            delete_checkpoint()
-            self.log_message("🗑️ Checkpoint cleared — batch fully complete.")
-        else:
-            self.log_message("📝 Checkpoint preserved — resume available on restart.")
-
-        self.log_message(f"\n{'='*60}")
-        self.log_message(f"📊 BATCH RESULT: {success}/{total} succeeded")
-        if fail > 0:
-            self.log_message(f"   ❌ {fail} failed")
-        self.log_message(f"{'='*60}")
-
-        self.log_message("System: Batch processing finished.")
-
-    def _set_preview(self, img_path: str):
-        """Update the preview display with a specific image (thread-safe)."""
-        self.selected_file = img_path
-        if img_path and os.path.exists(img_path):
-            self.rotation = 0
-            self.zoom_level = 1.0
-            self.display_image()
-
-    def _sync_ui_from_vlm(self, data: dict):
-        """Sync the sidebar input widgets with values extracted by the VLM."""
-        # --- Year ---
-        extracted_year = str(data.get("examination_year", "")).strip()
-        if extracted_year.isdigit():
-            try:
-                current_years = self.year_box.cget("values")
-                if extracted_year in current_years:
-                    self.year_box.set(extracted_year)
-                else:
-                    # Add it and select
-                    updated = list(current_years) + [extracted_year]
-                    updated = sorted(set(updated), key=lambda x: int(x), reverse=True)
-                    self.year_box.configure(values=updated)
-                    self.year_box.set(extracted_year)
-            except Exception:
-                pass
-
-        # --- Grade ---
-        extracted_grade = str(data.get("grade", "")).strip().lower()
-        grade_map = {"eleven": "11", "twelve": "12", "11": "11", "12": "12"}
-        if extracted_grade in grade_map:
-            try:
-                self.grade_btn.set(grade_map[extracted_grade])
-            except Exception:
-                pass
-
-        # --- Exam Type ---
-        extracted_type = str(data.get("exame_Type", "")).strip()
-        exam_type_map = {
-            "regular": "Regular",
-            "partial": "Partial",
-            "supplementary": "Supplementary",
-        }
-        mapped_type = exam_type_map.get(extracted_type.lower())
-        if mapped_type:
-            try:
-                self.exam_btn.set(mapped_type)
-            except Exception:
-                pass
-    
-    def save_to_database(self):
-        if not self.current_ocr_data:
-            self.log_message("Database Error: No data buffer found to commit.")
-            return
-
-        # --- Confirmation dialog ---
-        if not self._confirm_db_commit():
-            self.log_message("Database Commit: Cancelled by user.")
-            return
-
-        self.log_message("Database: Initializing secure handshake...")
-        self.db_save_btn.configure(state="disabled", text="⌛ COMMITTING...")
-        
-        threading.Thread(target=self.db_thread_logic, daemon=True).start()
-
-    def _confirm_db_commit(self) -> bool:
-        """Show a confirmation dialog with extracted details before DB commit."""
-        raw = self.current_vlm_raw
-        if not raw:
-            return False
-
-        school = raw.get("school_name", "?")
-        school_code = raw.get("school_code", "?")
-        grade = raw.get("grade", "?")
-        exam_type = raw.get("exame_Type", "?")
-        year = raw.get("examination_year", "?")
-        page = raw.get("page_number", "?")
-        students = raw.get("students", [])
-
-        # Build detailed summary
-        detail_lines = [
-            f"School : {school} ({school_code})",
-            f"Grade  : {grade}",
-            f"Type   : {exam_type}",
-            f"Year   : {year}",
-            f"Page   : {page}",
-            f"Students: {len(students)}",
-            "",
-            "─" * 40,
-        ]
-
-        # Show first few students as preview
-        preview_count = min(5, len(students))
-        for idx in range(preview_count):
-            s = students[idx]
-            name = s.get("student_name", "?")
-            symbol = s.get("symbol_number", "?")
-            total = s.get("grand_total", "?")
-            remark = s.get("remark", "?")
-            detail_lines.append(f"{idx+1}. {name}  [{symbol}]  Total: {total}  {remark}")
-
-        if len(students) > preview_count:
-            detail_lines.append(f"   ... and {len(students) - preview_count} more")
-
-        detail_lines.append("")
-        detail_lines.append("Override values from sidebar will be used for:")
-        detail_lines.append(f"  Grade (UI): {self.grade_btn.get()}")
-        detail_lines.append(f"  Type  (UI): {self.exam_btn.get()}")
-        detail_lines.append(f"  Year  (UI): {self.year_box.get()}")
-
-        details = "\n".join(detail_lines)
-
-        # Use a custom CTkToplevel dialog for a polished look
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("Confirm Database Commit")
-        dialog.geometry("520x520")
-        dialog.configure(fg_color=COLORS["bg"])
-        dialog.transient(self)
-        dialog.grab_set()
-
-        # Header
-        header = ctk.CTkLabel(
-            dialog, text="📋 Confirm OCR Data Before Saving",
-            font=("Inter", 16, "bold"), text_color=COLORS["accent"]
-        )
-        header.pack(pady=(20, 10))
-
-        # Separator
-        sep = ctk.CTkFrame(dialog, height=2, fg_color=COLORS["border"])
-        sep.pack(fill="x", padx=30, pady=(0, 10))
-
-        # Scrollable detail area
-        text_box = ctk.CTkTextbox(
-            dialog, height=280, fg_color=COLORS["card"],
-            border_width=1, border_color=COLORS["border"],
-            font=("JetBrains Mono", 12), text_color=COLORS["text_main"]
-        )
-        text_box.pack(fill="both", expand=True, padx=30, pady=(0, 15))
-        text_box.insert("1.0", details)
-        text_box.configure(state="disabled")
-
-        # Button row
-        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        btn_frame.pack(fill="x", padx=30, pady=(0, 20))
-
-        result = [False]  # mutable capture for closures
-
-        def on_confirm():
-            result[0] = True
-            dialog.destroy()
-
-        def on_cancel():
-            result[0] = False
-            dialog.destroy()
-
-        cancel_btn = ctk.CTkButton(
-            btn_frame, text="CANCEL", command=on_cancel,
-            width=180, height=45, corner_radius=12,
-            fg_color="transparent", border_width=1, border_color=COLORS["border"],
-            font=("Inter", 13, "bold")
-        )
-        cancel_btn.pack(side="left", expand=True, padx=(0, 10))
-
-        confirm_btn = ctk.CTkButton(
-            btn_frame, text="✅ CONFIRM & SAVE", command=on_confirm,
-            width=180, height=45, corner_radius=12,
-            fg_color=COLORS["success"], font=("Inter", 13, "bold")
-        )
-        confirm_btn.pack(side="right", expand=True, padx=(10, 0))
-
-        # Center on parent
-        self.wait_window(dialog)
-
-        return result[0]
-    
-    def db_thread_logic(self):
-        try:
-            if not self.current_vlm_raw:
-                raise ValueError("No VLM OCR data available. Run OCR first.")
-
-            # Prepare metadata from UI selections
-            meta = {
-                "grade": self.grade_btn.get(),
-                "exam_type": self.exam_btn.get(),
-                "exam_year": self.year_box.get(),
-                "book_name": None,
-                "qc_check": "0",
-                "qc_remarks": None,
-                "cluster_id": None,
-                "ui": "True",
-                "remarks": None,
-                "is_legacy_image": False,
-            }
-
-            # Save to normalized 6-table schema
-            save_vlm_to_database(
-                self.current_vlm_raw,
-                self.selected_file,
-                meta=meta
-            )
-
-            student_count = len(self.current_ocr_data)
-
-            # Finalize UI
-            self.after(0, lambda: self.log_message(f"Database: [COMMIT_SUCCESS] {student_count} records saved to normalized tables."))
-            self.after(0, lambda: self.db_save_btn.configure(text="COMMIT TO DATABASE", fg_color=COLORS["border"]))
-            self.after(0, lambda: messagebox.showinfo("Success", f"Successfully saved {student_count} student records to NEB Database."))
-
-        except Exception as e:
-            error_msg = f"Database Critical Failure: {str(e)}"
-            self.after(0, lambda: self.log_message(error_msg))
-            self.after(0, lambda: self.db_save_btn.configure(state="normal", text="📥 RETRY COMMIT", fg_color=COLORS["danger"]))
 
     def log_message(self, msg):
         ts = datetime.datetime.now().strftime("%H:%M:%S")
@@ -1239,144 +403,6 @@ class RadiantUltraScanner(ctk.CTk):
                 
             except Exception as e:
                 self.log_message(f"Display Error: {str(e)}")
-
-    def rotate_image(self):
-        if self.selected_file:
-            try:
-                with Image.open(self.selected_file) as img:
-                    rotated_img = img.rotate(-90, expand=True)
-                    rotated_img.save(self.selected_file)
-                self.display_image()
-                self.log_message(f"Image physically rotated and saved.")
-                
-            except Exception as e:
-                self.log_message(f"Rotation Error: {str(e)}")
-
-    def toggle_crop_mode(self):
-        if not self.selected_file: return
-        self.is_crop_mode = not self.is_crop_mode
-        
-        if self.is_crop_mode:
-            self.display_label.configure(cursor="cross")
-            self.log_message("CROP MODE: Draw a box over the image to cut.")
-            # 1. UNBIND Dragging so the image stays still
-            self.display_label.unbind("<ButtonPress-1>")
-            self.display_label.unbind("<B1-Motion>")
-            # 2. BIND Crop Events
-            self.display_label.bind("<ButtonPress-1>", self.start_crop_select)
-            self.display_label.bind("<B1-Motion>", self.draw_crop_rect)
-            self.display_label.bind("<ButtonRelease-1>", self.execute_crop)
-        else:
-            self.display_label.configure(cursor="hand2")
-            # 3. REBIND Dragging when Crop is OFF
-            self.display_label.bind("<ButtonPress-1>", self.start_drag)
-            self.display_label.bind("<B1-Motion>", self.do_drag)
-            self.log_message("CROP MODE: Deactivated.")
-
-    def start_crop_select(self, event):
-        self.crop_start_x = event.x
-        self.crop_start_y = event.y
-        
-        # Initialize with 0 size, transparent background, and neon border
-        self.crop_rect = ctk.CTkFrame(
-            self.display_label, 
-            fg_color="transparent",
-            bg_color="transparent", 
-            border_width=2, 
-            border_color=COLORS["accent"],
-            width=0, 
-            height=0
-        )
-
-    def draw_crop_rect(self, event):
-        if not self.crop_rect or not self.crop_rect.winfo_exists():
-            return
-
-        # Calculate dimensions
-        cur_x, cur_y = event.x, event.y
-        x = min(self.crop_start_x, cur_x)
-        y = min(self.crop_start_y, cur_y)
-        w = abs(cur_x - self.crop_start_x)
-        h = abs(cur_y - self.crop_start_y)
-
-        # UPDATED: Use configure for size and place for position
-        self.crop_rect.configure(width=w, height=h)
-        self.crop_rect.place(x=x, y=y)
-
-    def execute_crop(self, event):
-        if not self.crop_rect or not self.crop_rect.winfo_exists():
-            return
-
-        try:
-            # 1. PREPARE UNDO: Save current state to history
-            with Image.open(self.selected_file) as current_img:
-                # We store a copy in memory to keep it fast
-                self.image_history.append(current_img.copy())
-                # Limit history to 5 steps to save RAM
-                if len(self.image_history) > 5: self.image_history.pop(0)
-
-            # 2. PERFORM CROP MATH
-            ui_w, ui_h = self.display_label.winfo_width(), self.display_label.winfo_height()
-            rect_x, rect_y = self.crop_rect.winfo_x(), self.crop_rect.winfo_y()
-            rect_w, rect_h = self.crop_rect.winfo_width(), self.crop_rect.winfo_height()
-
-            if rect_w < 10 or rect_h < 10: return # Ignore accidental clicks
-
-            with Image.open(self.selected_file) as img:
-                img = img.rotate(-self.rotation, expand=True)
-                scale_x, scale_y = img.size[0] / ui_w, img.size[1] / ui_h
-                
-                # 3. CROP & AUTO-SAVE
-                cropped_img = img.crop((rect_x * scale_x, rect_y * scale_y, 
-                                        (rect_x + rect_w) * scale_x, 
-                                        (rect_y + rect_h) * scale_y))
-                
-                # Overwrite the original file automatically
-                cropped_img.save(self.selected_file, quality=95)
-                self.rotation = 0 # Reset rotation since it's "baked" into the crop now
-            
-            self.log_message("Auto-Save: Image cropped and synchronized to disk.")
-            
-        except Exception as e:
-            self.log_message(f"Crop Error: {str(e)}")
-        finally:
-            if self.crop_rect.winfo_exists(): self.crop_rect.destroy()
-            self.toggle_crop_mode() # Exit crop mode
-            self.display_image()     # Refresh UI
-
-    def undo_last_action(self):
-        if not self.image_history:
-            self.log_message("Undo Warning: No further history available.")
-            return
-
-        try:
-            last_img = self.image_history.pop()
-            last_img.save(self.selected_file, quality=95)
-            self.rotation = 0 # Reset rotation for the restored image
-            self.display_image()
-            self.log_message("Undo Success: Previous state restored and saved.")
-            
-        except Exception as e:
-            self.log_message(f"Undo Error: {str(e)}")
-
-    def save_image(self):
-        if self.selected_file:
-            path = filedialog.asksaveasfilename(defaultextension=".png")
-            if path:
-                Image.open(self.selected_file).rotate(-self.rotation, expand=True).save(path)
-                self.log_message(f"Export Success: {os.path.basename(path)}")
-
-    def print_image(self):
-        if self.selected_file:
-            try: os.startfile(self.selected_file, "print")
-            except: messagebox.showerror("Hardware", "No printing device detected.")
-
-    def clear_canvas(self):
-        self.selected_file = None
-        self.current_preview_img = None 
-        self.display_label.configure(image=None, text="CORE IDLE\nWaiting for document input...")
-        self.update()
-        self.log_message("Image buffer flushed.")
 
     def setup_loading_overlay(self):
         self.overlay = ctk.CTkFrame(self.view_card, fg_color=COLORS["bg"], corner_radius=25)
