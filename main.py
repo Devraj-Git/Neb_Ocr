@@ -3,7 +3,7 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
-from PIL import Image
+from PIL import Image, ImageDraw
 import os
 import datetime
 import threading
@@ -37,6 +37,47 @@ COLORS = {
     "danger": "#EF4444"
 }
 
+
+# ── Button icons (generated once via PIL) ────────────────────
+
+def _make_icon(draw_func, size=20, color="white"):
+    """Create a small CTkImage icon from a PIL drawing function."""
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw_func(draw, size, color)
+    return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
+
+
+def _draw_scan_icon(draw, size, color):
+    """Draw a small OCR/scan icon (document with lines)."""
+    c = color
+    m = 3  # margin
+    w, h = size - 2*m, size - 2*m
+    # Document body
+    draw.rectangle([m, m, m+w, m+h], outline=c, width=1)
+    # Content lines
+    for y in range(m + 4, m + h - 2, 4):
+        draw.line([m + 2, y, m + w - 2, y], fill=c, width=1)
+
+
+def _draw_save_icon(draw, size, color):
+    """Draw a small database/save icon (cylinder)."""
+    c = color
+    m = 3
+    w, h = size - 2*m, size - 2*m
+    cx = size // 2
+    # Cylinder top ellipse
+    draw.ellipse([m, m, m+w, m + h//3], outline=c, width=1)
+    # Cylinder body
+    draw.line([m, m + h//3, m, m + h - h//3], fill=c, width=1)
+    draw.line([m+w, m + h//3, m+w, m + h - h//3], fill=c, width=1)
+    # Cylinder bottom curve
+    draw.ellipse([m, m + h - h//3, m+w, m + h], outline=c, width=1)
+
+
+OCR_ICON = _make_icon(_draw_scan_icon, 20, "white")
+DB_ICON = _make_icon(_draw_save_icon, 20, "white")
+
 ctk.set_appearance_mode("Dark")
 
 class RadiantUltraScanner(ctk.CTk):
@@ -68,7 +109,7 @@ class RadiantUltraScanner(ctk.CTk):
         self.batch_folder = None
         self.batch_file_map = {}
         self.batch_completed_originals = set()
-
+        
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -272,19 +313,6 @@ class RadiantUltraScanner(ctk.CTk):
         )
         self.import_folder_btn.pack(side="bottom", fill="x", padx=30, pady=(0, 5))
 
-        # Auto-commit checkbox row
-        self.auto_commit_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        self.auto_commit_frame.pack(side="bottom", fill="x", padx=35, pady=(0, 5))
-
-        self.auto_commit_cb = ctk.CTkCheckBox(
-            self.auto_commit_frame, text="Auto-commit to DB",
-            variable=self.auto_commit, command=self._toggle_auto_commit,
-            font=("Inter", 12, "bold"), text_color=COLORS["text_dim"],
-            fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"],
-            checkmark_color="white", border_color=COLORS["border"]
-        )
-        self.auto_commit_cb.pack(side="left")
-
         # ── Webhook Configuration Info ──
         self.webhook_info_frame = ctk.CTkFrame(
             self.sidebar, fg_color="#1E293B", corner_radius=10, height=70
@@ -374,6 +402,7 @@ class RadiantUltraScanner(ctk.CTk):
 
         self.proceed_btn = ctk.CTkButton(
             self.button_row, text="PROCEED TO OCR ENGINE", 
+            image=OCR_ICON, compound="left",
             command=self.run_ocr, width=350, height=60, 
             corner_radius=30, fg_color=COLORS["success"], 
             font=("Inter", 16, "bold")
@@ -382,7 +411,8 @@ class RadiantUltraScanner(ctk.CTk):
 
         self.db_save_btn = ctk.CTkButton(
             self.button_row, 
-            text="📥 COMMIT TO DATABASE", 
+            text="COMMIT TO DATABASE", 
+            image=DB_ICON, compound="left",
             command=self.save_to_database,
             width=350, height=60, 
             corner_radius=30,
@@ -391,6 +421,23 @@ class RadiantUltraScanner(ctk.CTk):
             font=("Inter", 16, "bold")
         )
         self.db_save_btn.pack(side="right", expand=True, padx=(5, 0))
+
+        # ── Auto-commit row (below action bar, aligned under commit button) ──
+        self.auto_commit_row = ctk.CTkFrame(self.main_view, fg_color="transparent")
+        self.auto_commit_row.pack(fill="x", pady=(8, 0))
+
+        # Spacer pushes the checkbox to the right (under the commit button)
+        spacer = ctk.CTkLabel(self.auto_commit_row, text="", width=0)
+        spacer.pack(side="left", expand=True)
+
+        self.auto_commit_cb = ctk.CTkCheckBox(
+            self.auto_commit_row, text="Auto-commit to DB (skip confirmation)",
+            variable=self.auto_commit, command=self._toggle_auto_commit,
+            font=("Inter", 11, "bold"), text_color=COLORS["text_dim"],
+            fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"],
+            checkmark_color="white", border_color=COLORS["border"]
+        )
+        self.auto_commit_cb.pack(side="right", padx=(0, 10))
 
 
     def start_drag(self, event):
@@ -533,14 +580,14 @@ class RadiantUltraScanner(ctk.CTk):
         """Enable/disable DB save button based on auto-commit checkbox."""
         if self.auto_commit.get():
             self.db_save_btn.configure(state="disabled", fg_color=COLORS["border"],
-                                        text="📥 AUTO-COMMIT ON")
+                                        text="AUTO-COMMIT ON")
         else:
             if self.current_ocr_data:
                 self.db_save_btn.configure(state="normal", fg_color=COLORS["success"],
-                                            text="📥 COMMIT TO DATABASE")
+                                            text="COMMIT TO DATABASE")
             else:
                 self.db_save_btn.configure(state="disabled", fg_color=COLORS["border"],
-                                            text="📥 COMMIT TO DATABASE")
+                                            text="COMMIT TO DATABASE")
 
     def _auto_save_to_db(self, img_path: str):
         """Save OCR result to DB without confirmation dialog (used in auto-commit mode)."""
@@ -579,16 +626,20 @@ class RadiantUltraScanner(ctk.CTk):
 
         folder_abs = os.path.abspath(folder_path)
 
-        # Gather all image files, sorted
+        # Recursively scan all subfolders for images
         valid_exts = {".jpg", ".jpeg", ".png", ".bmp"}
-        all_files = []
-        for fname in sorted(os.listdir(folder_abs)):
-            ext = os.path.splitext(fname)[1].lower()
-            if ext in valid_exts:
-                all_files.append(fname)
+        all_files = []  # List of (relative_path, filename)
+        for root, dirs, files in os.walk(folder_abs):
+            for fname in sorted(files):
+                ext = os.path.splitext(fname)[1].lower()
+                if ext in valid_exts:
+                    # Store relative path from the selected root folder
+                    rel_path = os.path.relpath(os.path.join(root, fname), folder_abs)
+                    all_files.append(rel_path)
+        all_files.sort()
 
         if not all_files:
-            messagebox.showwarning("Empty Folder", "No image files found in the selected folder.")
+            messagebox.showwarning("Empty Folder", "No image files found in the selected folder or its subfolders.")
             return
 
         # --- Check for existing checkpoint (resume support) ---
@@ -658,123 +709,152 @@ class RadiantUltraScanner(ctk.CTk):
 
         threading.Thread(target=self.process_folder_thread, daemon=True).start()
 
+    def _process_and_save_image(self, img_path: str, source_filename: str = "",
+                                  log_prefix: str = ""):
+        """
+        Shared helper: copy image → run OCR → rename → save to DB with dedup.
+
+        Args:
+            img_path: Source image path.
+            source_filename: Original filename (for error logging).
+            log_prefix: Optional prefix for log messages (e.g. "[3/10] ").
+
+        Returns:
+            (success: bool, renamed_path: str|None, data_dict: dict|None)
+        """
+        renamed_path = None
+        data_dict = None
+
+        try:
+            # Build target folder from sidebar selections
+            selected_year = self.year_box.get()
+            selected_exam = self.exam_btn.get()
+            selected_grade = self.grade_btn.get()
+            roman_grade = to_roman(selected_grade)
+            year_folder = os.path.join(BASE_SAVE_PATH, selected_year)
+            exam_folder = os.path.join(
+                year_folder, f"{selected_year} {roman_grade} {selected_exam}"
+            )
+            os.makedirs(exam_folder, exist_ok=True)
+
+            # Copy image to save folder
+            saved_path = save_image_smart(img_path, exam_folder)
+
+            # Run OCR
+            data_dict, _ = get_vlm_result(saved_path)
+
+            # Rename image to meaningful name
+            new_name = build_image_filename(data_dict)
+            renamed_path = os.path.join(exam_folder, new_name)
+            if os.path.normpath(saved_path) != os.path.normpath(renamed_path):
+                if os.path.exists(renamed_path):
+                    os.remove(renamed_path)
+                os.rename(saved_path, renamed_path)
+            else:
+                renamed_path = saved_path
+
+            # Store in current context
+            self.current_vlm_raw = data_dict
+            self.current_ocr_data = data_dict.get("students", [])
+            student_count = len(self.current_ocr_data)
+
+            # Build metadata from sidebar selections
+            meta = {
+                "grade": selected_grade,
+                "exam_type": selected_exam,
+                "exam_year": selected_year,
+                "book_name": None,
+                "qc_check": "0",
+                "qc_remarks": None,
+                "cluster_id": None,
+                "ui": "True",
+                "remarks": None,
+                "is_legacy_image": False,
+            }
+
+            # Save to DB with dedup check
+            saved_count = 0
+            skipped_count = 0
+
+            try:
+                conn = _get_db()
+                exam_id = get_exam_id(
+                    conn, meta["exam_year"], meta["grade"], meta["exam_type"]
+                )
+
+                if exam_id:
+                    new_students = []
+                    for s in data_dict.get("students", []):
+                        reg = s.get("registration_number", "") if isinstance(s, dict) else s.registration_number
+                        if not is_student_already_in_db(conn, reg, exam_id):
+                            new_students.append(s)
+                        else:
+                            skipped_count += 1
+                    conn.close()
+
+                    if new_students:
+                        filtered_data = dict(data_dict)
+                        filtered_data["students"] = new_students
+                        save_vlm_to_database(filtered_data, renamed_path, meta=meta)
+                        saved_count = len(new_students)
+                else:
+                    conn.close()
+                    save_vlm_to_database(data_dict, renamed_path, meta=meta)
+                    saved_count = student_count
+
+            except Exception as db_err:
+                self.after(0, lambda e=db_err:
+                    self.log_message(f"⚠️ DB check failed (saving anyway): {e}"))
+                save_vlm_to_database(data_dict, renamed_path, meta=meta)
+                saved_count = student_count
+
+            # Log result
+            log_msg = f"💾 {log_prefix}{new_name}: {saved_count} saved"
+            if skipped_count:
+                log_msg += f", {skipped_count} already in DB (skipped)"
+            self.after(0, lambda m=log_msg: self.log_message(m))
+
+            return True, renamed_path, data_dict
+
+        except Exception as e:
+            log_name = source_filename or os.path.basename(img_path)
+            self.after(0, lambda f=log_name, err=str(e):
+                self.log_message(f"❌ {f} FAILED: {err}"))
+            return False, renamed_path, data_dict
+
     def process_folder_thread(self):
-        """Process all images in batch mode sequentially with checkpoint updates."""
+        """Process all images in batch mode sequentially, with checkpoint updates."""
         while self.batch_index < len(self.batch_files) and not self.batch_abort:
             orig_filename = self.batch_files[self.batch_index]
             self.batch_index += 1
 
-            # Build source path
             img_path = os.path.join(self.batch_folder, orig_filename)
-
             idx = self.batch_index
             total = self.batch_total
 
-            try:
-                # Copy image to save folder
-                selected_year = self.year_box.get()
-                selected_exam = self.exam_btn.get()
-                selected_grade = self.grade_btn.get()
-                roman_grade = to_roman(selected_grade)
-                year_folder = os.path.join(BASE_SAVE_PATH, selected_year)
-                exam_folder = os.path.join(year_folder, f"{selected_year} {roman_grade} {selected_exam}")
-                os.makedirs(exam_folder, exist_ok=True)
-                saved_path = save_image_smart(img_path, exam_folder)
+            self.after(0, lambda i=idx, t=total, f=orig_filename:
+                self.log_message(f"\n[{i}/{t}] Processing: {f}"))
 
-                # Update preview
-                self.after(0, lambda p=saved_path: self._set_preview(p))
-                self.after(0, lambda i=idx, t=total, f=orig_filename:
-                    self.log_message(f"\n[{i}/{t}] Processing: {f}"))
+            success, renamed_path, data_dict = self._process_and_save_image(
+                img_path, source_filename=orig_filename,
+                log_prefix=f"[{idx}/{total}] "
+            )
 
-                # Run OCR
-                data_dict, _ = get_vlm_result(saved_path)
-
-                # --- Rename image to meaningful name ---
-                new_name = build_image_filename(data_dict)
-                renamed_path = os.path.join(exam_folder, new_name)
-                if os.path.normpath(saved_path) != os.path.normpath(renamed_path):
-                    # Remove existing file with same name if any
-                    if os.path.exists(renamed_path):
-                        os.remove(renamed_path)
-                    os.rename(saved_path, renamed_path)
-                else:
-                    renamed_path = saved_path
-
-                # Track file mapping for checkpoint
+            if success:
+                # Track file mapping and update checkpoint
+                new_name = os.path.basename(renamed_path)
                 self.batch_file_map[orig_filename] = new_name
 
-                self.current_vlm_raw = data_dict
-                self.current_ocr_data = data_dict.get("students", [])
-                student_count = len(self.current_ocr_data)
-
-                # --- Dedup check: skip students already in DB ---
-                saved_count = 0
-                skipped_count = 0
-
-                # Batch mode always saves to DB
-                meta = {
-                    "grade": self.grade_btn.get(),
-                    "exam_type": self.exam_btn.get(),
-                    "exam_year": self.year_box.get(),
-                    "book_name": None,
-                    "qc_check": "0",
-                    "qc_remarks": None,
-                    "cluster_id": None,
-                    "ui": "True",
-                    "remarks": None,
-                    "is_legacy_image": False,
-                }
-
-                try:
-                    conn = _get_db()
-                    exam_id = get_exam_id(conn, meta["exam_year"], meta["grade"], meta["exam_type"])
-
-                    if exam_id:
-                        # Check each student — skip if already in DB
-                        new_students = []
-                        for s in data_dict.get("students", []):
-                            reg = s.get("registration_number", "") if isinstance(s, dict) else s.registration_number
-                            if is_student_already_in_db(conn, reg, exam_id):
-                                skipped_count += 1
-                            else:
-                                new_students.append(s)
-
-                        conn.close()
-
-                        if new_students:
-                            # Save only new students
-                            filtered_data = dict(data_dict)
-                            filtered_data["students"] = new_students
-                            save_vlm_to_database(filtered_data, renamed_path, meta=meta)
-                            saved_count = len(new_students)
-                    else:
-                        conn.close()
-                        save_vlm_to_database(data_dict, renamed_path, meta=meta)
-                        saved_count = student_count
-
-                except Exception as db_err:
-                    self.after(0, lambda e=db_err: self.log_message(f"⚠️ DB check failed (saving anyway): {e}"))
-                    save_vlm_to_database(data_dict, renamed_path, meta=meta)
-                    saved_count = student_count
-
-                log_msg = f"💾 [{idx}/{total}] {new_name}: {saved_count} saved"
-                if skipped_count:
-                    log_msg += f", {skipped_count} already in DB (skipped)"
-                self.after(0, lambda m=log_msg: self.log_message(m))
-
-                # --- Update checkpoint ---
                 self.batch_completed_originals.add(orig_filename)
                 remaining = [f for f in self.batch_files if f not in self.batch_completed_originals]
+                self.after(0, lambda p=renamed_path: self._set_preview(p))
                 self.after(0, lambda sf=self.batch_folder, tt=self.batch_total,
                            fm=self.batch_file_map, co=self.batch_completed_originals, rem=remaining:
                     save_checkpoint(sf, tt, dict(fm), list(co), rem))
 
                 self.batch_success += 1
-
-            except Exception as e:
+            else:
                 self.batch_fail += 1
-                self.after(0, lambda i=idx, t=total, f=orig_filename, err=str(e):
-                    self.log_message(f"❌ [{i}/{t}] {f} FAILED: {err}"))
 
         # Batch complete — clean up UI
         self.after(0, self._finish_batch)
@@ -1010,7 +1090,7 @@ class RadiantUltraScanner(ctk.CTk):
 
             # Finalize UI
             self.after(0, lambda: self.log_message(f"Database: [COMMIT_SUCCESS] {student_count} records saved to normalized tables."))
-            self.after(0, lambda: self.db_save_btn.configure(text="📥 COMMIT TO DATABASE", fg_color=COLORS["border"]))
+            self.after(0, lambda: self.db_save_btn.configure(text="COMMIT TO DATABASE", fg_color=COLORS["border"]))
             self.after(0, lambda: messagebox.showinfo("Success", f"Successfully saved {student_count} student records to NEB Database."))
 
         except Exception as e:
