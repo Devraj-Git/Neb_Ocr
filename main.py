@@ -1,4 +1,3 @@
-import json
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from PIL import Image
@@ -7,8 +6,8 @@ import datetime
 import threading
 import time
 from wia_scan import get_device_manager, connect_to_device_by_uid, scan_side
-from ocr_done_again.utils import get_next_filename, save_image_smart, to_roman
-from vlm_front import get_vlm_result, save_vlm_to_database
+from neb_utils.utils import get_next_filename, save_image_smart, to_roman
+from neb_utils.vlm_front import get_vlm_result, save_vlm_to_database
 import pythoncom
 from dotenv import load_dotenv
 load_dotenv()
@@ -97,7 +96,7 @@ class RadiantUltraScanner(ctk.CTk):
         # Load Image
         try:
             from PIL import Image
-            img = Image.open("nepal_oemblem.png")  # make sure path is correct
+            img = Image.open("media/nepal_oemblem.png")  # make sure path is correct
             self.emblem_icon = ctk.CTkImage(light_image=img, dark_image=img, size=(40, 40))
         except Exception as e:
             print("Logo Load Failed:", e)
@@ -339,20 +338,180 @@ class RadiantUltraScanner(ctk.CTk):
         if results:
             self.current_vlm_raw = results
             self.current_ocr_data = results.get("students", [])
+
+            # --- Auto-update UI inputs from VLM extraction ---
+            self._sync_ui_from_vlm(results)
+
             self.db_save_btn.configure(state="normal", fg_color=COLORS["success"])
             self.log_message("System: Records verified. Ready for Database Commit.")
         if error:
             self.log_message(f"VLM OCR Error: {error}")
+
+    def _sync_ui_from_vlm(self, data: dict):
+        """Sync the sidebar input widgets with values extracted by the VLM."""
+        # --- Year ---
+        extracted_year = str(data.get("examination_year", "")).strip()
+        if extracted_year.isdigit():
+            try:
+                current_years = self.year_box.cget("values")
+                if extracted_year in current_years:
+                    self.year_box.set(extracted_year)
+                else:
+                    # Add it and select
+                    updated = list(current_years) + [extracted_year]
+                    updated = sorted(set(updated), key=lambda x: int(x), reverse=True)
+                    self.year_box.configure(values=updated)
+                    self.year_box.set(extracted_year)
+            except Exception:
+                pass
+
+        # --- Grade ---
+        extracted_grade = str(data.get("grade", "")).strip().lower()
+        grade_map = {"eleven": "11", "twelve": "12", "11": "11", "12": "12"}
+        if extracted_grade in grade_map:
+            try:
+                self.grade_btn.set(grade_map[extracted_grade])
+            except Exception:
+                pass
+
+        # --- Exam Type ---
+        extracted_type = str(data.get("exame_Type", "")).strip()
+        exam_type_map = {
+            "regular": "Regular",
+            "partial": "Partial",
+            "supplementary": "Supplementary",
+        }
+        mapped_type = exam_type_map.get(extracted_type.lower())
+        if mapped_type:
+            try:
+                self.exam_btn.set(mapped_type)
+            except Exception:
+                pass
     
     def save_to_database(self):
         if not self.current_ocr_data:
             self.log_message("Database Error: No data buffer found to commit.")
             return
 
+        # --- Confirmation dialog ---
+        if not self._confirm_db_commit():
+            self.log_message("Database Commit: Cancelled by user.")
+            return
+
         self.log_message("Database: Initializing secure handshake...")
         self.db_save_btn.configure(state="disabled", text="⌛ COMMITTING...")
         
         threading.Thread(target=self.db_thread_logic, daemon=True).start()
+
+    def _confirm_db_commit(self) -> bool:
+        """Show a confirmation dialog with extracted details before DB commit."""
+        raw = self.current_vlm_raw
+        if not raw:
+            return False
+
+        school = raw.get("school_name", "?")
+        school_code = raw.get("school_code", "?")
+        grade = raw.get("grade", "?")
+        exam_type = raw.get("exame_Type", "?")
+        year = raw.get("examination_year", "?")
+        page = raw.get("page_number", "?")
+        students = raw.get("students", [])
+
+        # Build detailed summary
+        detail_lines = [
+            f"School : {school} ({school_code})",
+            f"Grade  : {grade}",
+            f"Type   : {exam_type}",
+            f"Year   : {year}",
+            f"Page   : {page}",
+            f"Students: {len(students)}",
+            "",
+            "─" * 40,
+        ]
+
+        # Show first few students as preview
+        preview_count = min(5, len(students))
+        for idx in range(preview_count):
+            s = students[idx]
+            name = s.get("student_name", "?")
+            symbol = s.get("symbol_number", "?")
+            total = s.get("grand_total", "?")
+            remark = s.get("remark", "?")
+            detail_lines.append(f"{idx+1}. {name}  [{symbol}]  Total: {total}  {remark}")
+
+        if len(students) > preview_count:
+            detail_lines.append(f"   ... and {len(students) - preview_count} more")
+
+        detail_lines.append("")
+        detail_lines.append("Override values from sidebar will be used for:")
+        detail_lines.append(f"  Grade (UI): {self.grade_btn.get()}")
+        detail_lines.append(f"  Type  (UI): {self.exam_btn.get()}")
+        detail_lines.append(f"  Year  (UI): {self.year_box.get()}")
+
+        details = "\n".join(detail_lines)
+
+        # Use a custom CTkToplevel dialog for a polished look
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Confirm Database Commit")
+        dialog.geometry("520x520")
+        dialog.configure(fg_color=COLORS["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # Header
+        header = ctk.CTkLabel(
+            dialog, text="📋 Confirm OCR Data Before Saving",
+            font=("Inter", 16, "bold"), text_color=COLORS["accent"]
+        )
+        header.pack(pady=(20, 10))
+
+        # Separator
+        sep = ctk.CTkFrame(dialog, height=2, fg_color=COLORS["border"])
+        sep.pack(fill="x", padx=30, pady=(0, 10))
+
+        # Scrollable detail area
+        text_box = ctk.CTkTextbox(
+            dialog, height=280, fg_color=COLORS["card"],
+            border_width=1, border_color=COLORS["border"],
+            font=("JetBrains Mono", 12), text_color=COLORS["text_main"]
+        )
+        text_box.pack(fill="both", expand=True, padx=30, pady=(0, 15))
+        text_box.insert("1.0", details)
+        text_box.configure(state="disabled")
+
+        # Button row
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=30, pady=(0, 20))
+
+        result = [False]  # mutable capture for closures
+
+        def on_confirm():
+            result[0] = True
+            dialog.destroy()
+
+        def on_cancel():
+            result[0] = False
+            dialog.destroy()
+
+        cancel_btn = ctk.CTkButton(
+            btn_frame, text="CANCEL", command=on_cancel,
+            width=180, height=45, corner_radius=12,
+            fg_color="transparent", border_width=1, border_color=COLORS["border"],
+            font=("Inter", 13, "bold")
+        )
+        cancel_btn.pack(side="left", expand=True, padx=(0, 10))
+
+        confirm_btn = ctk.CTkButton(
+            btn_frame, text="✅ CONFIRM & SAVE", command=on_confirm,
+            width=180, height=45, corner_radius=12,
+            fg_color=COLORS["success"], font=("Inter", 13, "bold")
+        )
+        confirm_btn.pack(side="right", expand=True, padx=(10, 0))
+
+        # Center on parent
+        self.wait_window(dialog)
+
+        return result[0]
     
     def db_thread_logic(self):
         try:

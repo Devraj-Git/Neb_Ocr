@@ -9,7 +9,7 @@ import json
 import os
 from typing import Optional
 
-from ollama_pipeline import process_image, save_to_database
+from .ollama_pipeline import process_image, save_to_database
 
 
 def get_vlm_result(img_path: str,

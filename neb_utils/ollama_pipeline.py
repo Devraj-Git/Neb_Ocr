@@ -17,7 +17,7 @@ import mysql.connector
 import ollama
 from PIL import Image
 
-from ocr_done_again.schemas import NEBGradingSheet
+from .schemas import NEBGradingSheet
 
 
 # ─────────────────────────────────────────────
@@ -135,8 +135,8 @@ def process_image(image_path: str, model: str = "qwen3-vl:8b-instruct",
                 }],
                 format=NEBGradingSheet.model_json_schema(),
                 options={
-                    "num_ctx": 16384,
-                    "num_predict": 8192,
+                    "num_ctx": 10288,
+                    # "num_predict": 8192,
                     "temperature": 0.0,
                     "top_k": 1,
                     "top_p": 0.1,
