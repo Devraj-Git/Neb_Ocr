@@ -7,9 +7,8 @@ import datetime
 import threading
 import time
 from wia_scan import get_device_manager, connect_to_device_by_uid, scan_side
-from ocr_done_again.database import NEBDB
-from ocr_done_again.utils import get_next_filename, save_image_smart, to_english, to_roman
-from ocr_front import get_ocr_result
+from ocr_done_again.utils import get_next_filename, save_image_smart, to_roman
+from vlm_front import get_vlm_result, save_vlm_to_database
 import pythoncom
 from dotenv import load_dotenv
 load_dotenv()
@@ -48,7 +47,8 @@ class RadiantUltraScanner(ctk.CTk):
         self.crop_rect = None
         self.is_crop_mode = False
         self.image_history = []
-        self.current_ocr_data = []
+        self.current_ocr_data = None
+        self.current_vlm_raw = None
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -318,42 +318,16 @@ class RadiantUltraScanner(ctk.CTk):
 
     def ocr_thread_logic(self):
         try:
-            data_list = get_ocr_result(self.selected_file)
-            output = []
-            output.append("="*50)
-            output.append(f"TOTAL RECORDS FOUND: {len(data_list)}")
-            output.append("="*50 + "\n")
+            data_dict, summary_text = get_vlm_result(
+                self.selected_file
+            )
 
-            for student in data_list:
-                symbol = student.get('SYMBOL', 'N/A')
-                name = student.get('NAME OF THE STUDENT', 'N/A')
-                total = student.get('TOTAL', 'N/A')
-                rem = student.get('REM', 'N/A')
-                dob = student.get('DOB', 'N/A')
-                reg = student.get('REG.NO.', 'N/A')
-                
-                record = f"SYMBOL: {symbol} | REG.NO.: {reg}\n | NAME: {name}\n | DOB: {dob}\n" 
-                record += f"REMARK: {rem} | TOTAL: {total}\n"
-                record += "-"*30 + "\n"
-                
-                for i in range(1, 8):
-                    code = student.get(f'CODE{i}')
-                    if code: # Only print if the subject exists
-                        th = student.get(f'TH{i}', '-')
-                        pr = student.get(f'PR{i}', '-')
-                        tot = student.get(f'TOT{i}', '-')
-                        record += f"  > {code}: TH({th}) PR({pr}) | TOT: {tot}\n"
-                
-                record += "\n"
-                output.append(record)
-
-            final_text = "".join(output)
-            self.after(0, lambda: self.finalize_ocr_button(data_list))
-            self.after(0, lambda: self.log_message(final_text))
-            self.after(0, lambda: self.log_message("OCR Sync: [DATA_DUMP_COMPLETE]"))
+            self.after(0, lambda: self.finalize_ocr_button(data_dict))
+            self.after(0, lambda: self.log_message(summary_text))
+            self.after(0, lambda: self.log_message("VLM OCR Sync: [EXTRACTION_COMPLETE]"))
 
         except Exception as e:
-            err = f"OCR Parse Error: {str(e)}"
+            err = f"VLM OCR Error: {str(e)}"
             self.after(0, lambda: self.log_message(err))
             self.after(0, lambda: self.finalize_ocr_button(error=True))
 
@@ -363,11 +337,12 @@ class RadiantUltraScanner(ctk.CTk):
             self.btn_loader.destroy()
         self.proceed_btn.configure(state="normal", text="PROCEED TO OCR ENGINE", fg_color=COLORS["success"])
         if results:
-            self.current_ocr_data = results
+            self.current_vlm_raw = results
+            self.current_ocr_data = results.get("students", [])
             self.db_save_btn.configure(state="normal", fg_color=COLORS["success"])
             self.log_message("System: Records verified. Ready for Database Commit.")
         if error:
-            self.log_message(f"OCR Error: {error}")
+            self.log_message(f"VLM OCR Error: {error}")
     
     def save_to_database(self):
         if not self.current_ocr_data:
@@ -381,50 +356,36 @@ class RadiantUltraScanner(ctk.CTk):
     
     def db_thread_logic(self):
         try:
-            db_engine = NEBDB() 
-            success_count = 0
+            if not self.current_vlm_raw:
+                raise ValueError("No VLM OCR data available. Run OCR first.")
 
-            for record in self.current_ocr_data:
-                relative_path = os.path.relpath(self.selected_file, BASE_SAVE_PATH).replace("\\", "/")
-                formatted_row = {
-                    "Grade": to_english(self.grade_btn.get()),
-                    "Exam_Type": self.exam_btn.get(),
-                    "Exam_Year": self.year_box.get(),
-                    "SYMBOL": record.get('SYMBOL'),
-                    "REG_NO": record.get('REG.NO.'),
-                    "NAME_OF_THE_STUDENTS": record.get('NAME OF THE STUDENT'),
-                    "DOB": record.get('DOB'),
-                    "TOTAL": record.get('TOTAL'),
-                    "RESULT": record.get('REM'),
-                    "School_Code": record.get('School_Code'),
-                    "School_Name": record.get('School_Name'),
-                    "SEX": None,
-                    "BookName": None,
-                    "REMARKS": None,
-                    "ImageName": None,
-                    "QC_CHECK": None,
-                    "QC_REMARKS": None,
-                    "FILE_PATH": relative_path,
-                    "UI": True, # Manually set UI to True as requested
-                    # Subject Mapping (CODE, TH, PR, TOT)
-                    "CODE1": record.get('CODE1'), "TH1": record.get('TH1'), "PR1": record.get('PR1'), "TOT1": record.get('TOT1'),
-                    "CODE2": record.get('CODE2'), "TH2": record.get('TH2'), "PR2": record.get('PR2'), "TOT2": record.get('TOT2'),
-                    "CODE3": record.get('CODE3'), "TH3": record.get('TH3'), "PR3": record.get('PR3'), "TOT3": record.get('TOT3'),
-                    "CODE4": record.get('CODE4'), "TH4": record.get('TH4'), "PR4": record.get('PR4'), "TOT4": record.get('TOT4'),
-                    "CODE5": record.get('CODE5'), "TH5": record.get('TH5'), "PR5": record.get('PR5'), "TOT5": record.get('TOT5'),
-                    "CODE6": record.get('CODE6'), "TH6": record.get('TH6'), "PR6": record.get('PR6'), "TOT6": record.get('TOT6'),
-                    "CODE7": record.get('CODE7'), "TH7": record.get('TH7'), "PR7": record.get('PR7'), "TOT7": record.get('TOT7'),
-                }
+            # Prepare metadata from UI selections
+            meta = {
+                "grade": self.grade_btn.get(),
+                "exam_type": self.exam_btn.get(),
+                "exam_year": self.year_box.get(),
+                "book_name": None,
+                "qc_check": "0",
+                "qc_remarks": None,
+                "cluster_id": None,
+                "ui": "True",
+                "remarks": None,
+                "is_legacy_image": False,
+            }
 
-                # 3. Call your update_with_log function
-                # Since you said 'row' is always None for newly added rows:
-                db_engine.update_with_log(row=None, updated_row=formatted_row)
-                success_count += 1
+            # Save to normalized 6-table schema
+            save_vlm_to_database(
+                self.current_vlm_raw,
+                self.selected_file,
+                meta=meta
+            )
 
-            # 4. Finalize UI
-            self.after(0, lambda: self.log_message(f"Database: [COMMIT_SUCCESS] {success_count} records synchronized."))
+            student_count = len(self.current_ocr_data)
+
+            # Finalize UI
+            self.after(0, lambda: self.log_message(f"Database: [COMMIT_SUCCESS] {student_count} records saved to normalized tables."))
             self.after(0, lambda: self.db_save_btn.configure(text="📥 COMMIT TO DATABASE", fg_color=COLORS["border"]))
-            self.after(0, lambda: messagebox.showinfo("Success", f"Successfully saved {success_count} records to NEB Database."))
+            self.after(0, lambda: messagebox.showinfo("Success", f"Successfully saved {student_count} student records to NEB Database."))
 
         except Exception as e:
             error_msg = f"Database Critical Failure: {str(e)}"

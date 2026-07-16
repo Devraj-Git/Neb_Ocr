@@ -33,6 +33,8 @@ class NEBGradingSheet(BaseModel):
     school_name: str
     page_number: str
     examination_year: str
+    grade: str = Field(description="Grade: Eleven or Twelve")
+    exame_Type: str = Field(description="Exam type: Regular, Partial, or Supplementary")
     students: List[StudentRecord]
     handwritten_marginal_notes: List[str] = Field(
         default_factory=list,
